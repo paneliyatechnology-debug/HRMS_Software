@@ -2380,15 +2380,7 @@ async function getApplication(applicationId: string) {
    ========================================================================== */
 
 // 74. PUT /payroll/salaries/:employeeId (Save salary)
-async function saveSalary(employeeId: string, payload: {
-  basicSalary: number;
-  hra?: number;
-  allowances?: number;
-  bonus?: number;
-  deductions?: number;
-  overtimePerHour?: number;
-  effectiveFrom?: string;
-}) {
+async function saveSalary(employeeId: string, payload: Record<string, any>) {
   try {
     const res = await http.put(`/payroll/salaries/${employeeId}`, payload, {
       headers: { 'Content-Type': 'application/json' },
@@ -2421,8 +2413,15 @@ async function getSalaryHistory(employeeId: string) {
   }
 }
 
+async function getSalaryRevisions(idOrUserId: string) {
+  const res = await deduplicatedGet(`/payroll/salary-structures/${idOrUserId}/revisions`);
+  return Array.isArray(res) ? res : res?.data || [];
+}
+
 // 77. POST /payroll/runs (Generate payroll)
-async function generatePayroll(payload: { year: number; month: number } | string) {
+async function generatePayroll(
+  payload: { year: number; month: number; periodStart?: string; periodEnd?: string; userIds?: string[] } | string,
+) {
   try {
     const body = typeof payload === 'string'
       ? { year: parseInt(payload.split('-')[0]), month: parseInt(payload.split('-')[1]) }
@@ -2438,10 +2437,26 @@ async function generatePayroll(payload: { year: number; month: number } | string
   }
 }
 
-// 78. GET /payroll/payslips (List payslips)
-async function listPayslips(mine = false) {
+async function previewPayroll(payload: { year: number; month: number; periodStart?: string; periodEnd?: string; userIds?: string[] }) {
   try {
-    return await deduplicatedGet('/payroll/payslips', mine ? { params: { mine: 1 } } : undefined);
+    const res = await http.post('/payroll/preview', payload, { headers: { 'Content-Type': 'application/json' } });
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to preview payroll.');
+  }
+}
+
+async function getPayrollDashboard(year: number, month: number) {
+  return await deduplicatedGet('/payroll/dashboard', { params: { year, month } });
+}
+
+// 78. GET /payroll/payslips (List payslips)
+async function listPayslips(mine = false, params?: { year?: number; month?: number; status?: string }) {
+  try {
+    const query: Record<string, unknown> = { ...(params || {}) };
+    if (mine) query.mine = 1;
+    return await deduplicatedGet('/payroll/payslips', Object.keys(query).length ? { params: query } : undefined);
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to list payslips.');
@@ -2449,15 +2464,132 @@ async function listPayslips(mine = false) {
 }
 
 // 79. POST /payroll/payslips/:payslipId/paid (Mark payslip paid)
-async function markPayslipPaid(payslipId: string) {
+async function markPayslipPaid(
+  payslipId: string,
+  payment?: { paymentMethod?: string; paymentReference?: string; paymentDate?: string; paymentNotes?: string },
+) {
   try {
-    const res = await http.post(`/payroll/payslips/${payslipId}/paid`);
+    const res = await http.post(`/payroll/payslips/${payslipId}/paid`, payment || {}, {
+      headers: { 'Content-Type': 'application/json' },
+    });
     clearApiCache('/payroll');
     return res.data;
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to mark payslip as paid.');
   }
+}
+
+async function approvePayroll(id: string) {
+  try {
+    const res = await http.post(`/payroll/${id}/approve`);
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to approve payroll.');
+  }
+}
+
+async function rejectPayroll(id: string, reason: string) {
+  try {
+    const res = await http.post(`/payroll/${id}/reject`, { reason }, { headers: { 'Content-Type': 'application/json' } });
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to reject payroll.');
+  }
+}
+
+async function holdPayrollRecord(id: string, hold: boolean, reason?: string) {
+  try {
+    const res = await http.post(
+      hold ? `/payroll/${id}/hold` : `/payroll/${id}/unhold`,
+      hold ? { reason } : {},
+      { headers: { 'Content-Type': 'application/json' } },
+    );
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update hold status.');
+  }
+}
+
+async function holdSalaryStructure(id: string, hold: boolean, reason?: string) {
+  try {
+    const res = await http.post(
+      `/payroll/salary-structures/${id}/hold`,
+      { hold, reason },
+      { headers: { 'Content-Type': 'application/json' } },
+    );
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to update salary hold.');
+  }
+}
+
+async function listAdvances(userId?: string) {
+  const res = await deduplicatedGet('/payroll/advances', userId ? { params: { userId } } : undefined);
+  return Array.isArray(res) ? res : res?.data || [];
+}
+
+async function createAdvance(payload: { userId: string; amount: number; recoveryPerMonth?: number; advanceDate?: string; reason?: string }) {
+  try {
+    const res = await http.post('/payroll/advances', payload, { headers: { 'Content-Type': 'application/json' } });
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to create advance.');
+  }
+}
+
+async function recoverAdvanceManually(id: string, amount: number, note?: string) {
+  try {
+    const res = await http.post(`/payroll/advances/${id}/recover`, { amount, note }, { headers: { 'Content-Type': 'application/json' } });
+    clearApiCache('/payroll');
+    return res.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Failed to record recovery.');
+  }
+}
+
+async function listAdvanceRecoveries(userId?: string) {
+  const res = await deduplicatedGet('/payroll/advances/recoveries', userId ? { params: { userId } } : undefined);
+  return Array.isArray(res) ? res : res?.data || [];
+}
+
+async function getPayrollMonthlyReport(year: number, month: number) {
+  return await deduplicatedGet('/payroll/reports/monthly', { params: { year, month } });
+}
+
+async function getPayrollYearlyReport(year: number) {
+  return await deduplicatedGet('/payroll/reports/yearly', { params: { year } });
+}
+
+async function getPayrollDepartmentReport(year: number, month: number) {
+  return await deduplicatedGet('/payroll/reports/departments', { params: { year, month } });
+}
+
+async function getPayrollPfReport(year: number, month: number) {
+  return await deduplicatedGet('/payroll/reports/pf', { params: { year, month } });
+}
+
+async function exportPayrollCsv(year: number, month: number) {
+  const response = await http.get('/payroll/reports/export', { params: { year, month }, responseType: 'blob' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(response.data as Blob);
+  link.href = url;
+  link.download = `payroll-${year}-${String(month).padStart(2, '0')}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 async function saveBankDetails(payload: { bankName: string; accountHolderName: string; accountNumber: string; ifsc: string }) {
@@ -2471,9 +2603,9 @@ async function saveBankDetails(payload: { bankName: string; accountHolderName: s
   }
 }
 
-async function getBankDetails() {
+async function getBankDetails(userId?: string) {
   try {
-    return await deduplicatedGet('/payroll/bank');
+    return await deduplicatedGet('/payroll/bank', userId ? { params: { userId } } : undefined);
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Bank details could not be loaded.');
@@ -3332,16 +3464,32 @@ export const api = new Proxy({
   sendOfferLetter,
   getApplication,
 
-  // Payroll (7)
+  // Payroll
   saveSalary,
   listSalaries,
   getSalaries: listSalaries,
   getSalaryHistory,
+  getSalaryRevisions,
   generatePayroll,
+  previewPayroll,
+  getPayrollDashboard,
   listPayslips,
   getPayslips: listPayslips,
   getPayroll: listPayslips,
   markPayslipPaid,
+  approvePayroll,
+  rejectPayroll,
+  holdPayrollRecord,
+  holdSalaryStructure,
+  listAdvances,
+  createAdvance,
+  recoverAdvanceManually,
+  listAdvanceRecoveries,
+  getPayrollMonthlyReport,
+  getPayrollYearlyReport,
+  getPayrollDepartmentReport,
+  getPayrollPfReport,
+  exportPayrollCsv,
   updatePayrollStatus: (id: string, _payload?: any) => markPayslipPaid(id),
   getPayslip,
   downloadPayslipFile,

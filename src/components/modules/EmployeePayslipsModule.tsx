@@ -39,25 +39,29 @@ function toPayrollRecord(row: any): PayrollRecord {
   const month = Number(row?.month || 0);
   const payrollMonth = row?.payrollMonth || (year && month ? `${year}-${String(month).padStart(2, '0')}` : '');
   const deduction = amount(row?.totalDeductions ?? row?.deduction ?? row?.deductions);
-  const hasSplit = row?.pfDeduction != null || row?.taxDeduction != null || row?.professionalTax != null;
+  const pf = amount(row?.employeePfAmount ?? row?.pfDeduction);
+  const tax = amount(row?.tds ?? row?.taxDeduction);
+  const pt = amount(row?.professionalTax);
+  const otherDed = amount(row?.otherDeductions) + amount(row?.loanDeduction) + amount(row?.advanceSalaryDeduction);
+  const hasSplit = pf > 0 || tax > 0 || pt > 0 || otherDed > 0;
   return {
     id: String(row?.id || ''),
     payrollMonth,
     employeeId: row?.employeeId || row?.userId || '',
     employeeName: row?.employeeName || row?.userName || '',
     employeeCode: row?.employeeCode || '',
-    designationTitle: row?.designationTitle || row?.role || '',
+    designationTitle: row?.designationTitle || row?.designation || row?.role || '',
     departmentName: row?.departmentName || '',
-    basicSalary: amount(row?.basicSalary),
+    basicSalary: amount(row?.earnedBasicSalary ?? row?.basicSalary),
     hra: amount(row?.hra),
-    allowances: amount(row?.allowances),
-    bonus: amount(row?.bonus),
+    allowances: amount(row?.allowances ?? (amount(row?.da) + amount(row?.otherAllowances) + amount(row?.travelAllowance) + amount(row?.medicalAllowance))),
+    bonus: amount(row?.bonus) + amount(row?.incentives),
     overtimePay: amount(row?.overtimePay),
     grossSalary: amount(row?.grossSalary ?? row?.grossPay),
-    pfDeduction: amount(row?.pfDeduction),
-    taxDeduction: amount(row?.taxDeduction),
-    professionalTax: amount(row?.professionalTax),
-    otherDeductions: amount(row?.otherDeductions ?? (hasSplit ? 0 : deduction)),
+    pfDeduction: pf,
+    taxDeduction: tax,
+    professionalTax: pt,
+    otherDeductions: hasSplit ? otherDed : deduction,
     totalDeductions: deduction,
     netSalary: amount(row?.netSalary ?? row?.netPay),
     status: row?.status || 'Paid',
@@ -77,8 +81,41 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
   const [mounted, setMounted] = useState(false);
   const [payslips, setPayslips] = useState<PayrollRecord[]>([]);
   const [selectedPayslip, setSelectedPayslip] = useState<PayrollRecord | null>(null);
-  const [bank, setBank] = useState<{ bankName: string; accountNumber: string; ifsc: string } | null>(null);
+  const [bank, setBank] = useState<{ bankName: string; accountHolderName?: string; accountNumber: string; ifsc: string } | null>(null);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [bankSaving, setBankSaving] = useState(false);
+  const [bankForm, setBankForm] = useState({
+    bankName: '',
+    accountHolderName: '',
+    accountNumber: '',
+    ifsc: '',
+  });
   const [salaryNote, setSalaryNote] = useState('');
+
+  const openBankModal = () => {
+    setBankForm({
+      bankName: bank?.bankName || '',
+      accountHolderName: bank?.accountHolderName || currentEmpName || '',
+      accountNumber: bank?.accountNumber || '',
+      ifsc: bank?.ifsc || '',
+    });
+    setIsBankModalOpen(true);
+  };
+
+  const handleSaveBank = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBankSaving(true);
+    try {
+      const res = await api.saveBankDetails(bankForm);
+      setBank(res?.bank || { ...bankForm });
+      setIsBankModalOpen(false);
+      showToast({ title: 'Bank Saved', message: 'Your bank details have been saved.', type: 'success' });
+    } catch (err: any) {
+      showToast({ title: 'Save Failed', message: err?.message || 'Could not save bank details.', type: 'error' });
+    } finally {
+      setBankSaving(false);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -316,8 +353,15 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
             <p className="text-[11px] font-medium text-slate-500 mt-1">
               {bank?.accountNumber
                 ? `A/C ****${bank.accountNumber.slice(-4)} • ${bank.ifsc || ''}`
-                : 'Add your bank once. The form stays until it is saved.'}
+                : 'Add your bank once so HR/Admin can transfer salary.'}
             </p>
+            <button
+              type="button"
+              onClick={openBankModal}
+              className="mt-2 px-3 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-bold transition cursor-pointer"
+            >
+              {bank?.accountNumber ? 'Update Bank' : '+ Add Bank Details'}
+            </button>
           </div>
         </div>
       </div>
@@ -729,6 +773,80 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
               </div>
             </div>
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {mounted && isBankModalOpen && createPortal(
+        <div
+          onClick={() => setIsBankModalOpen(false)}
+          className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl border border-slate-200"
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-900">Bank Account Details</h3>
+              <button type="button" onClick={() => setIsBankModalOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveBank} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Bank Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={bankForm.bankName}
+                  onChange={(e) => setBankForm((f) => ({ ...f, bankName: e.target.value }))}
+                  placeholder="e.g. HDFC Bank"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Account Holder Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={bankForm.accountHolderName}
+                  onChange={(e) => setBankForm((f) => ({ ...f, accountHolderName: e.target.value }))}
+                  placeholder="Full name as per bank"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Account Number *</label>
+                <input
+                  type="text"
+                  required
+                  value={bankForm.accountNumber}
+                  onChange={(e) => setBankForm((f) => ({ ...f, accountNumber: e.target.value }))}
+                  placeholder="Enter bank account number"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">IFSC Code *</label>
+                <input
+                  type="text"
+                  required
+                  value={bankForm.ifsc}
+                  onChange={(e) => setBankForm((f) => ({ ...f, ifsc: e.target.value.toUpperCase() }))}
+                  placeholder="e.g. HDFC0001234"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono uppercase"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setIsBankModalOpen(false)} className="px-4 py-2 rounded-xl border border-slate-200 font-semibold cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" disabled={bankSaving} className="px-4 py-2 rounded-xl bg-emerald-700 text-white font-semibold cursor-pointer disabled:opacity-50">
+                  {bankSaving ? 'Saving...' : 'Save Bank Details'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body

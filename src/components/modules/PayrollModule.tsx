@@ -1,30 +1,35 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { BouncingDotsLoader } from '../common/BouncingDotsLoader';
-import { useCompanyLive } from '../../lib/useCompanyLive';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   CreditCard,
   Download,
-  Printer,
   CheckCircle,
   FileText,
   DollarSign,
   Play,
   X,
-  MoreVertical,
   RotateCcw,
   Plus,
   Edit2,
   History,
   Loader2,
   Users,
+  Eye,
+  PauseCircle,
+  PlayCircle,
+  XCircle,
+  ShieldCheck,
+  BarChart3,
+  Wallet,
+  Search,
 } from 'lucide-react';
 import { PayrollRecord } from '../../types/hrms';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { useCompanyLive } from '../../lib/useCompanyLive';
 
 interface PayrollModuleProps {
   payrollRecords: PayrollRecord[];
@@ -32,1138 +37,1358 @@ interface PayrollModuleProps {
   loading?: boolean;
 }
 
+const inr = (val: unknown) => `₹${Number(val || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+
 export const PayrollModule: React.FC<PayrollModuleProps> = ({
   onRefresh,
   loading: parentLoading = false,
 }) => {
   const { user, hasPermission } = useAuth();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
   const { showToast } = useSocket();
+  const canManage = hasPermission('payroll.manage');
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const [selectedMonth, setSelectedMonth] = useState(() => {
-    const day = new Date();
-    day.setMonth(day.getMonth() - 1);
-    return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}`;
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
+  const [activeTab, setActiveTab] = useState<'runs' | 'salaries' | 'advances' | 'reports'>('runs');
+
+  const [yearNum, monthNum] = useMemo(() => {
+    const [y, m] = selectedMonth.split('-').map(Number);
+    return [y || new Date().getFullYear(), m || new Date().getMonth() + 1];
+  }, [selectedMonth]);
+
+  // Dashboard & Records
+  const [dashboard, setDashboard] = useState<any | null>(null);
+  const [records, setRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  // Preview Modal
+  const [previewItems, setPreviewItems] = useState<any[] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Selected Payslip Modal
   const [selectedPayslip, setSelectedPayslip] = useState<any | null>(null);
 
-  useEffect(() => {
-    if (!selectedPayslip) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedPayslip(null);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [selectedPayslip]);
+  // Payment Modal
+  const [payingRecord, setPayingRecord] = useState<any | null>(null);
+  const [payingBank, setPayingBank] = useState<any | null>(null);
+  const [payingBankLoading, setPayingBankLoading] = useState(false);
+  const [payMethod, setPayMethod] = useState('Bank Transfer');
+  const [payReference, setPayReference] = useState('');
+  const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [payNotes, setPayNotes] = useState('');
+  const [payBusy, setPayBusy] = useState(false);
 
-  const [loading, setLoading] = useState(false);
-
-  const [records, setRecords] = useState<any[]>([]);
-
-  const loadPayslips = async () => {
-    try {
-      const res = await api.listPayslips();
-      const list = Array.isArray(res) ? res : (res as any)?.data || [];
-      setRecords(list);
-    } catch (err: any) {
-      setRecords([]);
-      showToast({ title: 'Payroll', message: err.message || 'Could not load payslips.', type: 'error' });
-    }
+  const openPayModal = (rec: any) => {
+    setPayingRecord(rec);
+    setPayingBank(null);
+    setPayingBankLoading(true);
+    api.getBankDetails(rec.userId)
+      .then((res) => setPayingBank(res?.bank || null))
+      .catch(() => setPayingBank(null))
+      .finally(() => setPayingBankLoading(false));
   };
 
-  useEffect(() => {
-    loadPayslips();
-  }, []);
-
-  // Tab State: 'runs' (Payroll Runs) vs 'salaries' (Employee Salaries Structure)
-  const [activeTab, setActiveTab] = useState<'runs' | 'salaries'>('runs');
+  // Salaries
   const [salaries, setSalaries] = useState<any[]>([]);
   const [loadingSalaries, setLoadingSalaries] = useState(false);
-  const [salaryError, setSalaryError] = useState<string | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [bankDate, setBankDate] = useState('');
   const [savingBankDate, setSavingBankDate] = useState(false);
+  const [staffOptions, setStaffOptions] = useState<Array<{ id: string; name: string }>>([]);
 
   // Configure Salary Modal
   const [editingSalaryEmp, setEditingSalaryEmp] = useState<any | null>(null);
-  const [formBasicSalary, setFormBasicSalary] = useState(30000);
-  const [formHra, setFormHra] = useState(12000);
-  const [formAllowances, setFormAllowances] = useState(5000);
-  const [formBonus, setFormBonus] = useState(0);
-  const [formDeductions, setFormDeductions] = useState(0);
-  const [formOvertimePerHour, setFormOvertimePerHour] = useState(0);
-  const [formEffectiveFrom, setFormEffectiveFrom] = useState('');
+  const [salaryForm, setSalaryForm] = useState({
+    userId: '',
+    monthlySalary: 25000,
+    basicSalary: 12500,
+    hra: 5000,
+    da: 0,
+    otherAllowances: 7500,
+    travelAllowance: 0,
+    medicalAllowance: 0,
+    bonus: 0,
+    incentives: 0,
+    otherEarnings: 0,
+    overtimeRate: 0,
+    workingHoursPerDay: 8,
+    workingDaysPerMonth: 30,
+    pfApplicable: true,
+    pfWage: 12500,
+    pfWageCeiling: 15000,
+    employeePfRate: 12,
+    employerPfRate: 12,
+    loanDeduction: 0,
+    professionalTax: 200,
+    tds: 0,
+    otherDeductions: 0,
+    effectiveFrom: new Date().toISOString().slice(0, 10),
+    reason: '',
+  });
   const [savingSalary, setSavingSalary] = useState(false);
-  const [staffOptions, setStaffOptions] = useState<Array<{ id: string; name: string }>>([]);
 
-  // Salary History Modal
-  const [historyEmp, setHistoryEmp] = useState<any | null>(null);
-  const [historyData, setHistoryData] = useState<any[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  // Salary Revision History Modal
+  const [revisionEmp, setRevisionEmp] = useState<any | null>(null);
+  const [revisions, setRevisions] = useState<any[]>([]);
+  const [loadingRevisions, setLoadingRevisions] = useState(false);
 
-  useEffect(() => {
-    if (!hasPermission('payroll.manage')) return;
-    api.getBankDetails().then((data) => setBankDate(data?.date || '')).catch(() => undefined);
-  }, [hasPermission]);
+  // Advances
+  const [advances, setAdvances] = useState<any[]>([]);
+  const [recoveries, setRecoveries] = useState<any[]>([]);
+  const [loadingAdvances, setLoadingAdvances] = useState(false);
+  const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
+  const [advForm, setAdvForm] = useState({
+    userId: '',
+    amount: 3000,
+    recoveryPerMonth: 3000,
+    advanceDate: new Date().toISOString().slice(0, 10),
+    reason: '',
+  });
+  const [savingAdvance, setSavingAdvance] = useState(false);
 
-  const saveBankDate = async () => {
-    if (!bankDate) {
-      showToast({ title: 'Date required', message: 'Select the date when last month salary should open.', type: 'warning' });
-      return;
-    }
-    setSavingBankDate(true);
+  // Reports
+  const [deptReport, setDeptReport] = useState<any[]>([]);
+  const [pfReport, setPfReport] = useState<any | null>(null);
+  const [yearlyReport, setYearlyReport] = useState<any | null>(null);
+  const [loadingReports, setLoadingReports] = useState(false);
+
+  const loadRunsAndDashboard = async () => {
     try {
-      const saved = await api.saveBankFormDate(bankDate);
-      setBankDate(saved?.date || bankDate);
-      showToast({ title: 'Saved', message: 'On this date, last month salary opens for Employee, HR, and Manager.', type: 'success' });
+      const [payslipsRes, dashRes] = await Promise.all([
+        api.listPayslips(false, { year: yearNum, month: monthNum }),
+        canManage ? api.getPayrollDashboard(yearNum, monthNum).catch(() => null) : Promise.resolve(null),
+      ]);
+      const list = Array.isArray(payslipsRes) ? payslipsRes : (payslipsRes as any)?.data || [];
+      setRecords(list);
+      setDashboard(dashRes);
     } catch (err: any) {
-      showToast({ title: 'Could not save', message: err.message || 'Try again.', type: 'error' });
-    } finally {
-      setSavingBankDate(false);
+      setRecords([]);
+      showToast({ title: 'Payroll', message: err.message || 'Could not load payroll records.', type: 'error' });
     }
   };
 
   const fetchSalaries = async () => {
     setLoadingSalaries(true);
-    setSalaryError(null);
     try {
       const res = await api.listSalaries();
-      const list = Array.isArray(res) ? res : (res as any)?.data || [];
-      setSalaries(list);
+      setSalaries(Array.isArray(res) ? res : (res as any)?.data || []);
     } catch (err: any) {
-      console.warn('Could not fetch salaries:', err);
-      setSalaryError(err.message || 'Failed to fetch salaries.');
-      setSalaries([]);
+      showToast({ title: 'Salaries', message: err.message || 'Could not load salary structures.', type: 'error' });
     } finally {
       setLoadingSalaries(false);
     }
   };
 
-  useEffect(() => {
-    fetchSalaries();
-  }, []);
-  useCompanyLive(['payroll', 'employees'], () => {
-    void loadPayslips();
-    void fetchSalaries();
-    onRefresh();
-  });
+  const fetchAdvances = async () => {
+    setLoadingAdvances(true);
+    try {
+      const [advList, recList] = await Promise.all([
+        api.listAdvances(),
+        api.listAdvanceRecoveries(),
+      ]);
+      setAdvances(advList);
+      setRecoveries(recList);
+    } catch (err: any) {
+      showToast({ title: 'Advances', message: err.message || 'Could not load advances.', type: 'error' });
+    } finally {
+      setLoadingAdvances(false);
+    }
+  };
+
+  const fetchReports = async () => {
+    if (!canManage) return;
+    setLoadingReports(true);
+    try {
+      const [deptRes, pfRes, yearRes] = await Promise.all([
+        api.getPayrollDepartmentReport(yearNum, monthNum),
+        api.getPayrollPfReport(yearNum, monthNum),
+        api.getPayrollYearlyReport(yearNum),
+      ]);
+      setDeptReport(deptRes?.departments || []);
+      setPfReport(pfRes);
+      setYearlyReport(yearRes);
+    } catch (err: any) {
+      showToast({ title: 'Reports', message: err.message || 'Could not load reports.', type: 'error' });
+    } finally {
+      setLoadingReports(false);
+    }
+  };
 
   useEffect(() => {
-    if (activeTab === 'salaries') {
-      fetchSalaries();
-    }
+    loadRunsAndDashboard();
+    if (activeTab === 'reports') fetchReports();
+  }, [yearNum, monthNum]);
+
+  useEffect(() => {
+    if (!canManage) return;
+    api.getBankDetails().then((data) => setBankDate(data?.salaryDate || data?.date || '')).catch(() => undefined);
+    api.getEmployees().then((list) => {
+      if (Array.isArray(list)) {
+        setStaffOptions(
+          list
+            .filter((e: any) => String(e.role || '').toUpperCase() !== 'ADMIN')
+            .map((e: any) => ({ id: e.id, name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.email })),
+        );
+      }
+    }).catch(() => undefined);
+  }, [canManage]);
+
+  useEffect(() => {
+    if (activeTab === 'salaries') fetchSalaries();
+    if (activeTab === 'advances') fetchAdvances();
+    if (activeTab === 'reports') fetchReports();
   }, [activeTab]);
 
-  const salaryUserId = (row: any) => String(row?.userId || row?.employeeId || '');
-  const salaryName = (row: any) =>
-    row?.userName || row?.employee?.fullName || row?.employeeName || 'Staff Member';
-  const money = (value: unknown) => Number(value || 0);
-  const showDate = (value?: string) => {
-    const day = String(value || '').slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return 'Active';
-    const [year, month, date] = day.split('-');
-    return `${Number(month)}/${Number(date)}/${year}`;
-  };
+  useCompanyLive(['payroll', 'attendance', 'leave', 'users'], () => {
+    loadRunsAndDashboard();
+    if (activeTab === 'salaries') fetchSalaries();
+    if (activeTab === 'advances') fetchAdvances();
+  });
 
-  const handleOpenSalaryModal = (emp: any) => {
-    setEditingSalaryEmp(emp);
-    setFormBasicSalary(money(emp.basicSalary));
-    setFormHra(money(emp.hra));
-    setFormAllowances(money(emp.allowances));
-    setFormBonus(money(emp.bonus));
-    setFormDeductions(money(emp.deductions));
-    setFormOvertimePerHour(money(emp.overtimePerHour));
-    setFormEffectiveFrom(String(emp.effectiveFrom || new Date().toISOString()).slice(0, 10));
-  };
-
-  const handleAddSalary = async () => {
-    try {
-      const people = await api.getEmployees();
-      const options = (Array.isArray(people) ? people : [])
-        .map((person: any) => ({
-          id: String(person.id || person.userId || ''),
-          name: `${person.firstName || ''} ${person.lastName || ''}`.trim() || person.email || 'Employee',
-        }))
-        .filter((person) => person.id);
-      setStaffOptions(options);
-      const today = new Date().toISOString().slice(0, 10);
-      setEditingSalaryEmp({ userId: options[0]?.id || '', userName: options[0]?.name || '' });
-      setFormBasicSalary(0);
-      setFormHra(0);
-      setFormAllowances(0);
-      setFormBonus(0);
-      setFormDeductions(0);
-      setFormOvertimePerHour(0);
-      setFormEffectiveFrom(today);
-    } catch (err: any) {
-      showToast({ title: 'Employees', message: err.message || 'Could not load employees.', type: 'error' });
-    }
-  };
-
-  const handleSaveSalary = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingSalaryEmp) return;
-    const empId = salaryUserId(editingSalaryEmp);
-    if (!empId) {
-      showToast({ title: 'Employee required', message: 'Choose the employee for this salary.', type: 'warning' });
-      return;
-    }
-    setSavingSalary(true);
-    try {
-      await api.saveSalary(empId, {
-        basicSalary: Number(formBasicSalary),
-        hra: Number(formHra),
-        allowances: Number(formAllowances),
-        bonus: Number(formBonus),
-        deductions: Number(formDeductions),
-        overtimePerHour: Number(formOvertimePerHour),
-        effectiveFrom: formEffectiveFrom,
-      });
-      showToast({
-        title: 'Salary Saved',
-        message: 'Employee salary configuration updated.',
-        type: 'success',
-        module: 'payroll',
-      });
-      setEditingSalaryEmp(null);
-      fetchSalaries();
-      onRefresh();
-    } catch (err: any) {
-      showToast({
-        title: 'Save Failed',
-        message: err.message || 'Could not update salary structure.',
-        type: 'error',
-      });
-    } finally {
-      setSavingSalary(false);
-    }
-  };
-
-  const handleViewSalaryHistory = async (emp: any) => {
-    setHistoryEmp(emp);
-    setLoadingHistory(true);
-    try {
-      const empId = salaryUserId(emp);
-      const res = await api.getSalaryHistory(empId);
-      const list = Array.isArray(res) ? res : (res as any)?.history || (res as any)?.data || [];
-      setHistoryData(list);
-    } catch (err) {
-      console.warn('Could not load salary history:', err);
-      setHistoryData([]);
-    } finally {
-      setLoadingHistory(false);
-    }
-  };
-
-  const monthOf = (row: any) => {
-    if (row?.payrollMonth) return String(row.payrollMonth).slice(0, 7);
-    if (row?.year && row?.month) return `${row.year}-${String(row.month).padStart(2, '0')}`;
-    return '';
-  };
-  const monthRecords = records.filter((row) => monthOf(row) === selectedMonth);
-  const payslipRows = monthRecords.map((r: any) => ({
-    id: r.id,
-    name: r.employeeName || r.userName || 'Employee',
-    code: r.employeeCode || `EMP-${String(r.userId || r.employeeId || r.id).slice(0, 6).toUpperCase()}`,
-    avatar: r.employeeAvatar || r.avatarUrl || '',
-    role: r.designationTitle || r.role || 'Staff Member',
-    basic: Number(r.basicSalary || 0),
-    allowances: Number(r.allowances || 0),
-    gross: Number(r.grossSalary || r.grossPay || 0),
-    deductions: Number(r.totalDeductions || r.deduction || r.deductions || 0),
-    net: Number(r.netSalary || r.netPay || 0),
-    status: r.status || 'Generated',
-  }));
-
-  const handleStatusChange = async (id: string, newStatus: string) => {
-    if (newStatus !== 'Paid') return;
-    try {
-      await api.markPayslipPaid(id);
-      setRecords((prev) => prev.map((row) => (row.id === id ? { ...row, status: 'Paid' } : row)));
-      showToast({ title: 'Marked paid', message: 'This salary slip is now paid.', type: 'success' });
-    } catch (err: any) {
-      showToast({ title: 'Update failed', message: err.message || 'Could not mark this slip paid.', type: 'error' });
-    }
-  };
-
-  const handleExportACH = () => {
-    const csvContent =
-      'Name,Role,NetPay,Month\n' +
-      records
-        .filter((row: any) => {
-          const month = row.payrollMonth || (row.year && row.month ? `${row.year}-${String(row.month).padStart(2, '0')}` : '');
-          return month === selectedMonth;
-        })
-        .map(
-          (r: any) =>
-            `"${r.userName || r.employeeName || ''}","${r.role || r.designationTitle || ''}",${Number(r.netPay || r.netSalary || 0)},${selectedMonth}`
-        )
-        .join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ACH_Direct_Deposit_${selectedMonth}.csv`;
-    a.click();
-    showToast({
-      title: 'Batch Export Ready',
-      message: `Downloaded NACHA/ACH direct deposit file for ${selectedMonth}.`,
-      type: 'success',
-      module: 'payroll',
+  const filteredRecords = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return records.filter((r) => {
+      const st = String(r.status || '');
+      if (statusFilter !== 'All' && st !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        String(r.userName || '').toLowerCase().includes(q) ||
+        String(r.departmentName || '').toLowerCase().includes(q) ||
+        String(r.userEmail || '').toLowerCase().includes(q)
+      );
     });
-  };
+  }, [records, searchQuery, statusFilter]);
 
-  const handleViewSlip = async (rec: any) => {
+  useEffect(() => setPage(1), [searchQuery, statusFilter, selectedMonth]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
+  const pagedRecords = filteredRecords.slice((page - 1) * pageSize, page * pageSize);
+
+  const handlePreviewPayroll = async () => {
+    setPreviewLoading(true);
     try {
-      const data = await api.getPayslip(rec.id);
-      if (data) {
-        setSelectedPayslip(data);
-      } else {
-        showToast({
-          title: 'Payslip Notice',
-          message: 'No itemized payslip breakdown available for this record.',
-          type: 'error',
-          module: 'payroll',
-        });
-      }
-    } catch (err: any) {
-      showToast({
-        title: 'Error Loading Payslip',
-        message: err.message || 'Could not fetch payslip details from backend database.',
-        type: 'error',
-        module: 'payroll',
+      const res = await api.previewPayroll({
+        year: yearNum,
+        month: monthNum,
+        periodStart: periodStart || undefined,
+        periodEnd: periodEnd || undefined,
+        userIds: selectedUserIds.length ? selectedUserIds : undefined,
       });
+      setPreviewItems(res?.items || []);
+    } catch (err: any) {
+      showToast({ title: 'Preview Failed', message: err.message, type: 'error' });
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
-  const handlePrintSlip = async () => {
-    if (!selectedPayslip?.id) return;
-    try {
-      await api.downloadPayslipFile(selectedPayslip.id);
-      showToast({ title: 'Downloaded', message: 'Salary slip PDF downloaded.', type: 'success' });
-    } catch (err: any) {
-      showToast({
-        title: 'Print failed',
-        message: err.message || 'Could not load the salary slip.',
-        type: 'error',
-      });
-    }
-  };
-
-  const totalGross = payslipRows.reduce((acc, curr) => acc + curr.gross, 0);
-  const totalNet = payslipRows.reduce((acc, curr) => acc + curr.net, 0);
-  const totalDeductions = payslipRows.reduce((acc, curr) => acc + curr.deductions, 0);
-
-  const handleGenerateBatch = async () => {
-    if (salaries.length === 0) {
-      showToast({
-        title: 'Salary Structures Required',
-        message: 'No employee salary structures found in the database. Please configure employee monthly salaries in the "Salary Structures" tab before running payroll.',
-        type: 'error',
-        module: 'payroll',
-      });
-      return;
-    }
+  const handleGeneratePayroll = async () => {
     setLoading(true);
     try {
-      const res = await api.generatePayroll(selectedMonth);
-      const count = Array.isArray(res?.generated) ? res.generated.length : 0;
-      const missing = Array.isArray(res?.missingSalary) ? res.missingSalary.length : 0;
-      showToast({
-        title: 'Payroll generated',
-        message: missing
-          ? `${count} slips created. ${missing} people have no salary for this month.`
-          : `${count} salary slips created for ${selectedMonth}.`,
-        type: missing ? 'warning' : 'success',
+      const res = await api.generatePayroll({
+        year: yearNum,
+        month: monthNum,
+        periodStart: periodStart || undefined,
+        periodEnd: periodEnd || undefined,
+        userIds: selectedUserIds.length ? selectedUserIds : undefined,
       });
-      await loadPayslips();
+      await loadRunsAndDashboard();
       onRefresh();
+      setPreviewItems(null);
+      showToast({
+        title: 'Payroll Generated',
+        message: `Generated ${res?.generatedCount ?? 0} record(s) for ${selectedMonth}.`,
+        type: 'success',
+      });
     } catch (err: any) {
-      showToast({
-        title: 'Payroll Calculation Error',
-        message: err?.message || 'Backend payroll generation failed (500). Please ensure employee salaries and attendance are recorded for this month.',
-        type: 'error',
-        module: 'payroll',
-      });
-      onRefresh();
+      showToast({ title: 'Generate Failed', message: err.message, type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleApprove = async (rec: any) => {
+    try {
+      await api.approvePayroll(rec.id);
+      showToast({ title: 'Approved', message: `Approved payroll for ${rec.userName}.`, type: 'success' });
+      loadRunsAndDashboard();
+    } catch (err: any) {
+      showToast({ title: 'Approve Failed', message: err.message, type: 'error' });
+    }
+  };
+
+  const handleReject = async (rec: any) => {
+    const reason = window.prompt(`Enter rejection reason for ${rec.userName}:`, 'Needs attendance verification');
+    if (reason === null) return;
+    try {
+      await api.rejectPayroll(rec.id, reason);
+      showToast({ title: 'Rejected', message: `Payroll rejected for ${rec.userName}.`, type: 'warning' });
+      loadRunsAndDashboard();
+    } catch (err: any) {
+      showToast({ title: 'Reject Failed', message: err.message, type: 'error' });
+    }
+  };
+
+  const handleHoldRecord = async (rec: any, hold: boolean) => {
+    let reason: string | undefined;
+    if (hold) {
+      const entered = window.prompt(`Enter hold reason for ${rec.userName}:`, 'Pending clearance');
+      if (entered === null) return;
+      reason = entered;
+    }
+    try {
+      await api.holdPayrollRecord(rec.id, hold, reason);
+      showToast({ title: hold ? 'Put On Hold' : 'Hold Released', message: `${rec.userName} updated.`, type: 'info' });
+      loadRunsAndDashboard();
+    } catch (err: any) {
+      showToast({ title: 'Action Failed', message: err.message, type: 'error' });
+    }
+  };
+
+  const handleConfirmPay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payingRecord) return;
+    setPayBusy(true);
+    try {
+      await api.markPayslipPaid(payingRecord.id, {
+        paymentMethod: payMethod,
+        paymentReference: payReference.trim() || undefined,
+        paymentDate: payDate,
+        paymentNotes: payNotes.trim() || undefined,
+      });
+      showToast({ title: 'Marked Paid', message: `Salary paid to ${payingRecord.userName}.`, type: 'success' });
+      setPayingRecord(null);
+      setPayReference('');
+      setPayNotes('');
+      loadRunsAndDashboard();
+      onRefresh();
+    } catch (err: any) {
+      showToast({ title: 'Payment Failed', message: err.message, type: 'error' });
+    } finally {
+      setPayBusy(false);
+    }
+  };
+
+  const openConfigureSalary = (emp?: any) => {
+    setEditingSalaryEmp(emp || { isNew: true });
+    if (emp && !emp.isNew) {
+      setSalaryForm({
+        userId: emp.userId,
+        monthlySalary: Number(emp.monthlySalary || 0),
+        basicSalary: Number(emp.basicSalary || 0),
+        hra: Number(emp.hra || 0),
+        da: Number(emp.da || 0),
+        otherAllowances: Number(emp.otherAllowances || 0),
+        travelAllowance: Number(emp.travelAllowance || 0),
+        medicalAllowance: Number(emp.medicalAllowance || 0),
+        bonus: Number(emp.bonus || 0),
+        incentives: Number(emp.incentives || 0),
+        otherEarnings: Number(emp.otherEarnings || 0),
+        overtimeRate: Number(emp.overtimeRate || 0),
+        workingHoursPerDay: Number(emp.workingHoursPerDay || 8),
+        workingDaysPerMonth: Number(emp.workingDaysPerMonth || 30),
+        pfApplicable: emp.pfApplicable !== false,
+        pfWage: Number(emp.pfWage || emp.basicSalary || 0),
+        pfWageCeiling: Number(emp.pfWageCeiling || 15000),
+        employeePfRate: Number(emp.employeePfRate ?? 12),
+        employerPfRate: Number(emp.employerPfRate ?? 12),
+        loanDeduction: Number(emp.loanDeduction || 0),
+        professionalTax: Number(emp.professionalTax || 0),
+        tds: Number(emp.tds || 0),
+        otherDeductions: Number(emp.otherDeductions || 0),
+        effectiveFrom: emp.effectiveFrom || new Date().toISOString().slice(0, 10),
+        reason: '',
+      });
+    } else {
+      setSalaryForm((prev) => ({ ...prev, userId: staffOptions[0]?.id || '', reason: 'Initial salary setup' }));
+    }
+  };
+
+  const handleSaveSalary = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!salaryForm.userId) {
+      showToast({ title: 'Employee Required', message: 'Please select an employee.', type: 'warning' });
+      return;
+    }
+    setSavingSalary(true);
+    try {
+      await api.saveSalary(salaryForm.userId, salaryForm);
+      showToast({ title: 'Salary Saved', message: 'Salary structure updated successfully.', type: 'success' });
+      setEditingSalaryEmp(null);
+      fetchSalaries();
+    } catch (err: any) {
+      showToast({ title: 'Save Failed', message: err.message, type: 'error' });
+    } finally {
+      setSavingSalary(false);
+    }
+  };
+
+  const openRevisions = async (emp: any) => {
+    setRevisionEmp(emp);
+    setLoadingRevisions(true);
+    try {
+      setRevisions(await api.getSalaryRevisions(emp.userId));
+    } catch {
+      setRevisions([]);
+    } finally {
+      setLoadingRevisions(false);
+    }
+  };
+
+  const handleToggleStructureHold = async (s: any) => {
+    const hold = !s.isSalaryHeld;
+    const reason = hold ? window.prompt(`Hold reason for ${s.userName}:`, 'Administrative hold') ?? undefined : undefined;
+    if (hold && reason === undefined) return;
+    try {
+      await api.holdSalaryStructure(s.id, hold, reason);
+      showToast({ title: hold ? 'Salary Held' : 'Hold Released', message: `${s.userName} updated.`, type: 'info' });
+      fetchSalaries();
+      loadRunsAndDashboard();
+    } catch (err: any) {
+      showToast({ title: 'Failed', message: err.message, type: 'error' });
+    }
+  };
+
+  const handleCreateAdvance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!advForm.userId) return;
+    setSavingAdvance(true);
+    try {
+      await api.createAdvance(advForm);
+      showToast({ title: 'Advance Added', message: 'Advance salary recorded.', type: 'success' });
+      setIsAdvanceModalOpen(false);
+      fetchAdvances();
+    } catch (err: any) {
+      showToast({ title: 'Failed', message: err.message, type: 'error' });
+    } finally {
+      setSavingAdvance(false);
+    }
+  };
+
+  const handleManualRecover = async (adv: any) => {
+    const val = window.prompt(`Enter recovery amount (Pending: ${inr(adv.pendingAmount)}):`, String(adv.pendingAmount));
+    if (!val) return;
+    const amt = Number(val);
+    if (!Number.isFinite(amt) || amt <= 0) return;
+    try {
+      await api.recoverAdvanceManually(adv.id, amt, 'Manual recovery via Payroll UI');
+      showToast({ title: 'Recovered', message: `Recovered ${inr(amt)}.`, type: 'success' });
+      fetchAdvances();
+    } catch (err: any) {
+      showToast({ title: 'Recovery Failed', message: err.message, type: 'error' });
+    }
+  };
+
+  const saveBankDate = async () => {
+    if (!bankDate) return;
+    setSavingBankDate(true);
+    try {
+      await api.saveBankFormDate(bankDate);
+      showToast({ title: 'Saved', message: 'Salary release date updated.', type: 'success' });
+    } catch (err: any) {
+      showToast({ title: 'Failed', message: err.message, type: 'error' });
+    } finally {
+      setSavingBankDate(false);
+    }
+  };
+
   return (
-    <div className="space-y-5 w-full animate-in fade-in select-none">
-      {/* ── Tab Switcher: Runs vs Salaries ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 border border-slate-200/70 shadow-sm">
-          <button
-            type="button"
-            onClick={() => setActiveTab('runs')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeTab === 'runs'
-                ? 'bg-[#1b4332] text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Payslips
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('salaries')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeTab === 'salaries'
-                ? 'bg-[#1b4332] text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Salary setup ({salaries.length})
-          </button>
+    <div className="space-y-6 pb-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Payroll &amp; Compensation</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Hours-based salary, EPF compliance, advance recovery, approvals, and statutory reports.
+          </p>
         </div>
 
-        {activeTab === 'runs' && (
-          <div className="flex flex-wrap items-center gap-2.5">
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-1.5 rounded-xl border border-slate-200/80 text-xs text-slate-700 bg-white focus:outline-hidden"
-            />
-            <button
-              onClick={handleGenerateBatch}
-              disabled={loading}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 cursor-pointer"
-              style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
-            >
-              <Play className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>{loading ? 'Calculating...' : 'Run Payroll'}</span>
-            </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+            {([
+              ['runs', 'Payroll Runs', Play],
+              ['salaries', 'Salary & PF', Users],
+              ['advances', 'Advances', Wallet],
+              ['reports', 'Reports', BarChart3],
+            ] as const).map(([key, label, Icon]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveTab(key)}
+                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
+                  activeTab === key ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
-        )}
-
-        {activeTab === 'salaries' && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleAddSalary}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1b4332] text-white font-bold text-xs cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add salary</span>
-            </button>
-            <button
-              type="button"
-              onClick={fetchSalaries}
-              disabled={loadingSalaries}
-              className="p-2 rounded-xl bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 shadow-2xs transition active:scale-95 disabled:opacity-50 cursor-pointer"
-              title="Refresh salaries"
-            >
-              <RotateCcw className={`w-3.5 h-3.5 ${loadingSalaries ? 'animate-spin text-emerald-600' : ''}`} />
-            </button>
-          </div>
-        )}
+        </div>
       </div>
 
+      {/* Dashboard KPIs */}
+      {canManage && dashboard && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4">
+            <p className="text-[11px] font-semibold text-slate-500">Total Net Payroll</p>
+            <p className="text-lg font-black text-slate-900 mt-1">{inr(dashboard.totalNetSalary)}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Gross: {inr(dashboard.totalGrossSalary)}</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-2xl p-4">
+            <p className="text-[11px] font-semibold text-slate-500">EPF (Emp / Er)</p>
+            <p className="text-lg font-black text-indigo-700 mt-1">{inr(dashboard.totalPfDeduction)}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Employer: {inr(dashboard.totalEmployerPf)}</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-2xl p-4">
+            <p className="text-[11px] font-semibold text-slate-500">Advance Recovery</p>
+            <p className="text-lg font-black text-amber-700 mt-1">{inr(dashboard.totalAdvanceRecovery)}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{dashboard.totalEmployees} active staff</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-2xl p-4">
+            <p className="text-[11px] font-semibold text-slate-500">Paid / Approved</p>
+            <p className="text-lg font-black text-emerald-700 mt-1">
+              {dashboard.paidCount} / {dashboard.approvedCount}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Paid: {inr(dashboard.totalPaidPayroll)}</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-2xl p-4">
+            <p className="text-[11px] font-semibold text-slate-500">Pending / Held / Rejected</p>
+            <p className="text-lg font-black text-rose-700 mt-1">
+              {dashboard.pendingCount} / {dashboard.heldCount} / {dashboard.rejectedCount}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Held: {inr(dashboard.heldPayroll)}</p>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 1: PAYROLL RUNS */}
       {activeTab === 'runs' && (
-        <div className="space-y-5 animate-in fade-in duration-200">
-          {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
-            <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs flex flex-wrap items-end gap-3">
-              <label className="text-xs font-bold text-slate-700">
-                Salary date
+        <div className="space-y-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 font-semibold text-slate-800"
+              />
+              <input
+                type="date"
+                value={periodStart}
+                onChange={(e) => setPeriodStart(e.target.value)}
+                title="Custom Period Start (Optional)"
+                className="px-2.5 py-2 rounded-xl border border-slate-200 text-slate-700"
+              />
+              <input
+                type="date"
+                value={periodEnd}
+                onChange={(e) => setPeriodEnd(e.target.value)}
+                title="Custom Period End (Optional)"
+                className="px-2.5 py-2 rounded-xl border border-slate-200 text-slate-700"
+              />
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
-                  type="date"
-                  value={bankDate}
-                  onChange={(event) => setBankDate(event.target.value)}
-                  className="mt-1 block rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search employee..."
+                  className="pl-8 pr-3 py-2 rounded-xl border border-slate-200 text-slate-700"
                 />
-              </label>
+              </div>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 bg-white font-semibold text-slate-700"
+              >
+                <option value="All">All Status</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Paid">Paid</option>
+                <option value="On Hold">On Hold</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+
+            {canManage && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={handlePreviewPayroll}
+                  disabled={previewLoading}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>{previewLoading ? 'Previewing...' : 'Preview'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGeneratePayroll}
+                  disabled={loading || parentLoading}
+                  className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>{loading ? 'Generating...' : selectedUserIds.length ? `Generate (${selectedUserIds.length})` : 'Generate Payroll'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => api.exportPayrollCsv(yearNum, monthNum)}
+                  className="px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Records Table */}
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px]">
+                  <tr>
+                    <th className="py-3 px-4">Employee</th>
+                    <th className="py-3 px-3">Worked / OT</th>
+                    <th className="py-3 px-3">Gross</th>
+                    <th className="py-3 px-3">PF (Emp/Er)</th>
+                    <th className="py-3 px-3">Advance</th>
+                    <th className="py-3 px-3">Net Pay</th>
+                    <th className="py-3 px-3">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {pagedRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-10 text-center text-slate-400">
+                        No payroll records for {selectedMonth}. Click &quot;Generate Payroll&quot; to calculate.
+                      </td>
+                    </tr>
+                  ) : (
+                    pagedRecords.map((rec) => (
+                      <tr key={rec.id} className="hover:bg-slate-50/70">
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-900">{rec.userName || 'Employee'}</div>
+                          <div className="text-[11px] text-slate-500">{rec.departmentName || 'General'}</div>
+                        </td>
+                        <td className="py-3 px-3 tabular-nums">
+                          <div>{rec.actualWorkingHours}h / {rec.overtimeHours}h OT</div>
+                          <div className="text-[11px] text-slate-400">
+                            {rec.presentDays ?? 0}d • PL {rec.paidLeaveDays} • UL {rec.unpaidLeaveDays}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-slate-800 tabular-nums">{inr(rec.grossSalary)}</td>
+                        <td className="py-3 px-3 tabular-nums">
+                          <div>{inr(rec.employeePfAmount)}</div>
+                          <div className="text-[11px] text-slate-400">Er: {inr(rec.employerPfAmount)}</div>
+                        </td>
+                        <td className="py-3 px-3 tabular-nums text-amber-700 font-semibold">{inr(rec.advanceSalaryDeduction)}</td>
+                        <td className="py-3 px-3 font-black text-emerald-800 tabular-nums">{inr(rec.netSalary)}</td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                              rec.status === 'Paid'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : rec.status === 'Approved'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : rec.status === 'On Hold'
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : rec.status === 'Rejected'
+                                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                      : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            {rec.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPayslip(rec)}
+                              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 cursor-pointer"
+                              title="View Payslip"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => api.downloadPayslipFile(rec.id)}
+                              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 cursor-pointer"
+                              title="Download PDF"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                            {canManage && rec.status === 'Pending' && !rec.isHeld && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApprove(rec)}
+                                  className="p-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer"
+                                  title="Approve"
+                                >
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleReject(rec)}
+                                  className="p-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 cursor-pointer"
+                                  title="Reject"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                            {canManage && rec.status !== 'Paid' && (
+                              <button
+                                type="button"
+                                onClick={() => handleHoldRecord(rec, !rec.isHeld)}
+                                className="p-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer"
+                                title={rec.isHeld ? 'Release Hold' : 'Put On Hold'}
+                              >
+                                {rec.isHeld ? <PlayCircle className="w-3.5 h-3.5" /> : <PauseCircle className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
+                            {canManage && (rec.status === 'Approved' || rec.status === 'Pending') && !rec.isHeld && (
+                              <button
+                                type="button"
+                                onClick={() => openPayModal(rec)}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold cursor-pointer"
+                              >
+                                Pay
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {filteredRecords.length > pageSize && (
+              <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                <span>Page {page} of {totalPages} ({filteredRecords.length} records)</span>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                    className="px-3 py-1 rounded-lg border border-slate-200 disabled:opacity-40 cursor-pointer"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="px-3 py-1 rounded-lg border border-slate-200 disabled:opacity-40 cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: SALARY STRUCTURES & PF */}
+      {activeTab === 'salaries' && (
+        <div className="space-y-4">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-slate-600">Payslip Release Date:</span>
+              <input
+                type="date"
+                value={bankDate}
+                onChange={(e) => setBankDate(e.target.value)}
+                className="px-2.5 py-1.5 rounded-xl border border-slate-200"
+              />
               <button
                 type="button"
                 onClick={saveBankDate}
                 disabled={savingBankDate}
-                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold disabled:opacity-60"
+                className="px-3 py-1.5 rounded-xl bg-slate-800 text-white font-semibold cursor-pointer"
               >
-                {savingBankDate ? 'Saving...' : 'Save date'}
+                {savingBankDate ? 'Saving...' : 'Save Date'}
               </button>
-              <p className="text-[11px] text-slate-500 max-w-xl">
-                1. Set salary in Salary setup. 2. Choose a month and press Run Payroll. 3. On this date, Employee, HR, and Manager see last month&apos;s slip. Bank details are added by them, one time, from their own screen.
-              </p>
             </div>
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-400">Gross</span>
-          <p className="text-2xl font-semibold tracking-tight text-slate-800 mt-2">
-            ₹{totalGross.toLocaleString('en-IN')}
-          </p>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-            <span>{selectedMonth}</span>
-            <span>{payslipRows.length} slips</span>
+            <button
+              type="button"
+              onClick={() => openConfigureSalary()}
+              className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Salary Structure</span>
+            </button>
           </div>
-        </div>
 
-        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-400">Deductions</span>
-          <p className="text-2xl font-semibold tracking-tight text-amber-600 mt-2">
-            ₹{totalDeductions.toLocaleString('en-IN')}
-          </p>
-          <div className="mt-2 text-[11px] text-slate-400">From the salary structure</div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white border border-slate-100 shadow-2xs">
-          <span className="text-xs font-semibold text-slate-400">Net pay</span>
-          <p className="text-2xl font-semibold tracking-tight text-blue-600 mt-2">
-            ₹{totalNet.toLocaleString('en-IN')}
-          </p>
-          <div className="mt-2 text-[11px] text-slate-400">Payable for {selectedMonth}</div>
-        </div>
-      </div>
-
-      {/* Payroll Records Table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h3 className="text-sm font-bold text-slate-900">
-            Monthly slips
-          </h3>
-
-          <button
-            onClick={handleExportACH}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200/80 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>Download CSV</span>
-          </button>
-        </div>
-
-        {/* Mobile Card View (< md) */}
-        <div className="md:hidden divide-y divide-slate-100">
-          {payslipRows.length === 0 ? (
-            <div className="py-10 px-4 text-center text-slate-400 text-xs">
-              <p className="font-semibold text-slate-500">No payroll records generated for this cycle.</p>
-            </div>
-          ) : (
-            payslipRows.map((rec) => (
-              <div key={`mob-${rec.id}`} className="py-3.5 space-y-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {rec.avatar ? (
-                      <img src={rec.avatar} alt={rec.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs shrink-0">
-                        {rec.name.charAt(0)}
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 text-sm truncate">{rec.name}</p>
-                      <span className="text-[11px] text-slate-400">{rec.code} • {rec.role}</span>
-                    </div>
-                  </div>
-                  <select
-                    value={rec.status}
-                    onChange={(e) => handleStatusChange(rec.id, e.target.value)}
-                    className={`px-2.5 py-1 rounded-full font-semibold text-xs border-0 cursor-pointer shrink-0 ${
-                      rec.status === 'Paid'
-                        ? 'bg-emerald-50 text-emerald-600'
-                        : rec.status === 'Processed'
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'bg-amber-50 text-amber-600'
-                    }`}
-                  >
-                    <option value="Generated">Generated</option>
-                    <option value="Paid">Paid</option>
-                  </select>
-                </div>
-                <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-center text-xs">
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">Gross</span>
-                    <span className="font-semibold text-slate-900">₹{rec.gross.toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">Deductions</span>
-                    <span className="font-medium text-amber-600">-₹{rec.deductions.toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">Net Pay</span>
-                    <span className="font-bold text-blue-600">₹{rec.net.toLocaleString()}</span>
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => handleViewSlip(rec)}
-                    className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition cursor-pointer"
-                  >
-                    View Slip
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="hidden md:block overflow-x-auto [scrollbar-width:thin]">
-          <table className="w-full min-w-[760px] text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-400 font-semibold">
-                <th className="py-2.5 px-3">Employee</th>
-                <th className="py-2.5 px-3">Role</th>
-                <th className="py-2.5 px-3">Basic Pay</th>
-                <th className="py-2.5 px-3">Allowances</th>
-                <th className="py-2.5 px-3">Gross Salary</th>
-                <th className="py-2.5 px-3">Deductions</th>
-                <th className="py-2.5 px-3">Net Take-Home</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3 text-right">Payslip</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {payslipRows.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400 text-xs">
-                    <p className="mb-1 font-semibold text-slate-500">No payroll records generated for this cycle.</p>
-                    {salaries.length === 0 ? (
-                      <p className="text-amber-700 font-medium text-[11px] mt-1">
-                        âš ï¸ Please configure employee salaries in the{' '}
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab('salaries')}
-                          className="underline font-bold text-emerald-700 hover:text-emerald-800 cursor-pointer"
-                        >
-                          Salary Structures tab
-                        </button>{' '}
-                        first before running payroll.
-                      </p>
-                    ) : (
-                      <p className="text-slate-400 text-[11px]">
-                        Click &quot;Run Payroll&quot; above to calculate salaries for {salaries.length} employee{salaries.length > 1 ? 's' : ''}.
-                      </p>
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                payslipRows.map((rec) => (
-                  <tr key={rec.id} className="hover:bg-slate-50/70 transition">
-                    <td className="py-3 px-3">
-                      <div className="flex items-center gap-2.5">
-                        {rec.avatar ? (
-                          <img
-                            src={rec.avatar}
-                            alt={rec.name}
-                            className="w-7 h-7 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-[10px]">
-                            {rec.name.charAt(0)}
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-semibold text-slate-900">{rec.name}</p>
-                          <span className="text-[10px] text-slate-400">{rec.code}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 text-slate-500">{rec.role}</td>
-                    <td className="py-3 px-3 text-slate-700 font-medium">₹{(Number(rec.basic) || 0).toLocaleString()}</td>
-                    <td className="py-3 px-3 text-slate-500">+₹{(Number(rec.allowances) || 0).toLocaleString()}</td>
-                    <td className="py-3 px-3 text-slate-900 font-semibold">₹{(Number(rec.gross) || 0).toLocaleString()}</td>
-                    <td className="py-3 px-3 text-amber-600 font-medium">-₹{(Number(rec.deductions) || 0).toLocaleString()}</td>
-                    <td className="py-3 px-3 text-blue-600 font-bold">₹{(Number(rec.net) || 0).toLocaleString()}</td>
-                    <td className="py-3 px-3">
-                      <select
-                        value={rec.status}
-                        onChange={(e) => handleStatusChange(rec.id, e.target.value)}
-                        className={`px-2 py-0.5 rounded-full font-semibold text-[10px] border-0 cursor-pointer ${
-                          rec.status === 'Paid'
-                            ? 'bg-emerald-50 text-emerald-600'
-                            : rec.status === 'Processed'
-                            ? 'bg-blue-50 text-blue-600'
-                            : 'bg-amber-50 text-amber-600'
-                        }`}
-                      >
-                        <option value="Generated">Generated</option>
-                        <option value="Paid">Paid</option>
-                      </select>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button
-                        onClick={() => handleViewSlip(rec)}
-                        className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition"
-                      >
-                        View Slip
-                      </button>
-                    </td>
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px]">
+                  <tr>
+                    <th className="py-3 px-4">Select</th>
+                    <th className="py-3 px-4">Employee</th>
+                    <th className="py-3 px-3">Monthly CTC</th>
+                    <th className="py-3 px-3">Basic / HRA</th>
+                    <th className="py-3 px-3">PF Config</th>
+                    <th className="py-3 px-3">Hold Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  )}
-
-  {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-      TAB: EMPLOYEE SALARY STRUCTURES
-  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-  {activeTab === 'salaries' && (
-    <div className="space-y-4 animate-in fade-in duration-200">
-      {salaryError && (
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between gap-3">
-          <span>{salaryError}</span>
-          <button
-            type="button"
-            onClick={fetchSalaries}
-            className="px-3 py-1 rounded-lg bg-amber-200/80 font-bold text-[11px] cursor-pointer"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {loadingSalaries || (parentLoading && salaries.length === 0) ? (
-        <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center shadow-2xs">
-          <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
-          <p className="text-xs font-bold text-slate-700">Loading compensation records...</p>
-        </div>
-      ) : salaries.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center shadow-2xs">
-          <CreditCard className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm font-bold text-slate-800">No salary records configured</p>
-          <p className="text-xs text-slate-400 mt-1">
-            Configure employee monthly salary structures to automate future payroll calculations.
-          </p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-2xs overflow-hidden">
-          {/* Mobile Card View (< md) */}
-          <div className="md:hidden divide-y divide-slate-100">
-            {salaries.map((sal: any) => {
-              const empName = salaryName(sal);
-              const empId = salaryUserId(sal);
-              return (
-                <div key={`mob-sal-${sal.id || empId}`} className="p-4 space-y-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 text-sm truncate">{empName}</p>
-                      <p className="text-[11px] text-slate-400">{sal.role || 'Staff'} • {showDate(sal.effectiveFrom)}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleViewSalaryHistory(sal)}
-                        className="min-h-[38px] px-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 cursor-pointer"
-                        title="Salary History"
-                      >
-                        <History className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenSalaryModal(sal)}
-                        className="min-h-[38px] px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs flex items-center gap-1 cursor-pointer"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                        <span>Configure</span>
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">Basic</span>
-                      <span className="font-mono font-semibold text-slate-800">₹{money(sal.basicSalary).toLocaleString('en-IN')}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">HRA</span>
-                      <span className="font-mono text-slate-700">₹{money(sal.hra).toLocaleString('en-IN')}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">Allowances</span>
-                      <span className="font-mono text-slate-700">₹{money(sal.allowances).toLocaleString('en-IN')}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">Deductions</span>
-                      <span className="font-mono text-rose-600">-₹{money(sal.deductions).toLocaleString('en-IN')}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="hidden md:block overflow-x-auto [scrollbar-width:thin]">
-            <table className="w-full text-left text-xs min-w-[700px]">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                  <th className="py-3 px-4">Employee</th>
-                  <th className="py-3 px-4">Basic Salary</th>
-                  <th className="py-3 px-4">HRA</th>
-                  <th className="py-3 px-4">Allowances</th>
-                  <th className="py-3 px-4">Deductions</th>
-                  <th className="py-3 px-4">Effective From</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {salaries.map((sal: any) => {
-                  const empName = salaryName(sal);
-                  const empId = salaryUserId(sal);
-                  return (
-                    <tr key={sal.id || empId} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900">{empName}</div>
-                        <div className="text-[10px] text-slate-400">{sal.role || ''}</div>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-semibold text-slate-800">
-                        ₹{money(sal.basicSalary).toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-600">
-                        ₹{money(sal.hra).toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-600">
-                        ₹{money(sal.allowances).toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-rose-600">
-                        -₹{money(sal.deductions).toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-500">
-                        {showDate(sal.effectiveFrom)}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loadingSalaries ? (
+                    <tr><td colSpan={7} className="py-8 text-center text-slate-400">Loading...</td></tr>
+                  ) : salaries.length === 0 ? (
+                    <tr><td colSpan={7} className="py-8 text-center text-slate-400">No salary structures configured yet.</td></tr>
+                  ) : (
+                    salaries.map((s) => (
+                      <tr key={s.id} className="hover:bg-slate-50/70">
+                        <td className="py-3 px-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedUserIds.includes(s.userId)}
+                            onChange={(e) =>
+                              setSelectedUserIds((prev) =>
+                                e.target.checked ? [...prev, s.userId] : prev.filter((id) => id !== s.userId),
+                              )
+                            }
+                          />
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-900">{s.userName}</div>
+                          <div className="text-[11px] text-slate-500">{s.departmentName || 'General'}</div>
+                        </td>
+                        <td className="py-3 px-3 font-bold text-slate-900">{inr(s.monthlySalary)}</td>
+                        <td className="py-3 px-3">{inr(s.basicSalary)} / {inr(s.hra)}</td>
+                        <td className="py-3 px-3">
+                          {s.pfApplicable ? (
+                            <span className="text-indigo-700 font-semibold">
+                              ON ({s.employeePfRate}% / {s.employerPfRate}%, Cap {inr(s.pfWageCeiling)})
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">OFF</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3">
+                          {s.isSalaryHeld ? (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[11px]">
+                              Held
+                            </span>
+                          ) : (
+                            <span className="text-emerald-700 font-semibold">Active</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right space-x-1">
                           <button
                             type="button"
-                            onClick={() => handleViewSalaryHistory(sal)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-                            title="Salary History"
+                            onClick={() => openConfigureSalary(s)}
+                            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer"
+                            title="Edit Structure"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openRevisions(s)}
+                            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer"
+                            title="Revision History"
                           >
                             <History className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleOpenSalaryModal(sal)}
-                            className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 font-bold text-[11px] transition cursor-pointer flex items-center gap-1"
+                            onClick={() => handleToggleStructureHold(s)}
+                            className="p-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 cursor-pointer"
+                            title={s.isSalaryHeld ? 'Release Hold' : 'Hold Salary'}
                           >
-                            <Edit2 className="w-3 h-3" />
-                            <span>Configure</span>
+                            {s.isSalaryHeld ? <PlayCircle className="w-3.5 h-3.5" /> : <PauseCircle className="w-3.5 h-3.5" />}
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
-    </div>
-  )}
 
-  {/* Printable Payslip Modal */}
-      {mounted && selectedPayslip && typeof document !== 'undefined' && createPortal(
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedPayslip(null);
-          }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer overflow-y-auto"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200/80 overflow-hidden cursor-default transition-all my-auto max-h-[90vh] flex flex-col"
-          >
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0 bg-white">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">Official Salary Slip</h3>
-                  <p className="text-xs text-slate-500 truncate mt-0.5">Pay period details and breakdown</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={handlePrintSlip}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  <Printer className="w-4 h-4" /> <span>Print</span>
-                </button>
-                <button
-                  onClick={() => setSelectedPayslip(null)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+      {/* TAB 3: ADVANCE SALARY MANAGEMENT */}
+      {activeTab === 'advances' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-bold text-slate-900">Employee Advances &amp; Auto-Recovery</h3>
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAdvForm((f) => ({ ...f, userId: staffOptions[0]?.id || '' }));
+                  setIsAdvanceModalOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Issue Advance</span>
+              </button>
+            )}
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px]">
+                <tr>
+                  <th className="py-3 px-4">Employee</th>
+                  <th className="py-3 px-3">Date</th>
+                  <th className="py-3 px-3">Amount</th>
+                  <th className="py-3 px-3">Recovered</th>
+                  <th className="py-3 px-3">Pending</th>
+                  <th className="py-3 px-3">Monthly Recovery</th>
+                  <th className="py-3 px-3">Status</th>
+                  <th className="py-3 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loadingAdvances ? (
+                  <tr><td colSpan={8} className="py-8 text-center text-slate-400">Loading...</td></tr>
+                ) : advances.length === 0 ? (
+                  <tr><td colSpan={8} className="py-8 text-center text-slate-400">No advance salary records.</td></tr>
+                ) : (
+                  advances.map((a) => (
+                    <tr key={a.id} className="hover:bg-slate-50/70">
+                      <td className="py-3 px-4 font-bold text-slate-900">{a.userName}</td>
+                      <td className="py-3 px-3">{a.advanceDate}</td>
+                      <td className="py-3 px-3 font-semibold">{inr(a.amount)}</td>
+                      <td className="py-3 px-3 text-emerald-700">{inr(a.recoveredAmount)}</td>
+                      <td className="py-3 px-3 font-bold text-rose-700">{inr(a.pendingAmount)}</td>
+                      <td className="py-3 px-3">{inr(a.recoveryPerMonth)}</td>
+                      <td className="py-3 px-3 font-semibold">{a.status}</td>
+                      <td className="py-3 px-4 text-right">
+                        {canManage && a.pendingAmount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleManualRecover(a)}
+                            className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 font-semibold cursor-pointer"
+                          >
+                            Manual Recover
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {recoveries.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-4">
+              <h4 className="text-xs font-bold text-slate-700 mb-2">Recovery History</h4>
+              <div className="space-y-1.5 text-xs">
+                {recoveries.slice(0, 15).map((r) => (
+                  <div key={r.id} className="flex justify-between border-b border-slate-100 pb-1.5">
+                    <span>{r.userName} • {r.recoveryDate} • {r.note || (r.isManual ? 'Manual' : 'Auto Payroll')}</span>
+                    <span className="font-bold text-emerald-700">{inr(r.amount)}</span>
+                  </div>
+                ))}
               </div>
             </div>
+          )}
+        </div>
+      )}
 
-            <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4">
-              <div className="flex justify-between">
-                <div>
-                  <p className="font-bold text-slate-900 text-sm">{selectedPayslip.userName || selectedPayslip.employeeName || 'Employee'}</p>
-                  <p className="text-slate-500">{selectedPayslip.role || selectedPayslip.designationTitle || ''}</p>
-                </div>
-                <div className="text-right">
-                  <span className="font-semibold text-blue-600">
-                    Period: {selectedPayslip.year && selectedPayslip.month ? `${selectedPayslip.year}-${String(selectedPayslip.month).padStart(2, '0')}` : selectedPayslip.payPeriod || ''}
-                  </span>
-                  <p className="text-slate-400 text-[10px]">Status: {selectedPayslip.status || 'Generated'}</p>
+      {/* TAB 4: REPORTS */}
+      {activeTab === 'reports' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center bg-white border border-slate-200 rounded-2xl p-4">
+            <div className="text-xs font-semibold text-slate-700">
+              Reports for <span className="font-bold">{selectedMonth}</span> (Year {yearNum})
+            </div>
+            <button
+              type="button"
+              onClick={() => api.exportPayrollCsv(yearNum, monthNum)}
+              className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export Excel / CSV</span>
+            </button>
+          </div>
+
+          {loadingReports ? (
+            <div className="p-8 text-center text-xs text-slate-400">Loading reports...</div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4">
+                <h4 className="text-sm font-bold text-slate-900 mb-3">Department-Wise Payroll</h4>
+                <div className="space-y-2 text-xs">
+                  {deptReport.length === 0 ? (
+                    <p className="text-slate-400">No department data.</p>
+                  ) : (
+                    deptReport.map((d) => (
+                      <div key={d.departmentName} className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50">
+                        <div>
+                          <div className="font-bold text-slate-800">{d.departmentName}</div>
+                          <div className="text-[11px] text-slate-500">{d.employees} employees</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-emerald-800">{inr(d.netSalary)}</div>
+                          <div className="text-[11px] text-slate-500">PF: {inr(d.employeePf + d.employerPf)}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200/60 text-xs">
-                <div>
-                  <p className="font-bold text-slate-700 mb-1">Earnings</p>
-                  <div className="flex justify-between text-slate-600 py-0.5"><span>Basic</span><span>₹{money(selectedPayslip.basicSalary).toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between text-slate-600 py-0.5"><span>HRA</span><span>₹{money(selectedPayslip.hra).toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between text-slate-600 py-0.5"><span>Allowances</span><span>₹{money(selectedPayslip.allowances).toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between text-slate-600 py-0.5"><span>Bonus</span><span>₹{money(selectedPayslip.bonus).toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between text-slate-600 py-0.5"><span>Overtime</span><span>₹{money(selectedPayslip.overtimePay).toLocaleString('en-IN')}</span></div>
-                </div>
-                <div>
-                  <p className="font-bold text-slate-700 mb-1">Deductions</p>
-                  <div className="flex justify-between text-slate-600 py-0.5">
-                    <span>Total deductions</span>
-                    <span className="font-semibold text-rose-600">₹{money(selectedPayslip.deduction ?? selectedPayslip.deductions).toLocaleString('en-IN')}</span>
+              <div className="bg-white border border-slate-200 rounded-2xl p-4">
+                <h4 className="text-sm font-bold text-slate-900 mb-3">PF Summary ({selectedMonth})</h4>
+                <div className="flex gap-4 mb-3 text-xs">
+                  <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-800 font-bold">
+                    Employee PF: {inr(pfReport?.totalEmployeePf)}
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-800 font-bold">
+                    Employer PF: {inr(pfReport?.totalEmployerPf)}
                   </div>
                 </div>
+                <div className="space-y-1.5 text-xs max-h-60 overflow-y-auto">
+                  {(pfReport?.items || []).map((item: any) => (
+                    <div key={item.userId} className="flex justify-between border-b border-slate-100 pb-1">
+                      <span>{item.userName} (Wage: {inr(item.pfWage)})</span>
+                      <span className="font-semibold">Emp {inr(item.employeePfAmount)} / Er {inr(item.employerPfAmount)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-200/60 flex justify-between items-center">
-                <span className="font-bold text-slate-900">Net Take-Home Salary:</span>
-                <span className="text-lg font-semibold tracking-tight text-blue-600">
-                  ₹{money(selectedPayslip.netPay ?? selectedPayslip.netSalary).toLocaleString('en-IN')}
-                </span>
-              </div>
+              {yearlyReport && (
+                <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-4">
+                  <h4 className="text-sm font-bold text-slate-900 mb-3">Yearly Payroll Summary ({yearlyReport.year})</h4>
+                  <div className="flex flex-wrap gap-3 text-xs mb-3">
+                    <span className="px-3 py-1 rounded-xl bg-slate-100 font-bold">Total Gross: {inr(yearlyReport.totalGross)}</span>
+                    <span className="px-3 py-1 rounded-xl bg-emerald-50 text-emerald-800 font-bold">Total Net: {inr(yearlyReport.totalNet)}</span>
+                    <span className="px-3 py-1 rounded-xl bg-indigo-50 text-indigo-800 font-bold">Total Emp PF: {inr(yearlyReport.totalEmployeePf)}</span>
+                    <span className="px-3 py-1 rounded-xl bg-amber-50 text-amber-800 font-bold">Total Advance Recovery: {inr(yearlyReport.totalAdvanceRecovery)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MODAL: PREVIEW PAYROLL */}
+      {mounted && previewItems && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setPreviewItems(null)}>
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-900">Payroll Preview — {selectedMonth}</h3>
+              <button onClick={() => setPreviewItems(null)} className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-4 overflow-auto flex-1">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                  <tr>
+                    <th className="py-2 px-3">Employee</th>
+                    <th className="py-2 px-3">Payable Hrs</th>
+                    <th className="py-2 px-3">Gross</th>
+                    <th className="py-2 px-3">PF (Emp/Er)</th>
+                    <th className="py-2 px-3">Advance</th>
+                    <th className="py-2 px-3">Net Pay</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {previewItems.map((item) => (
+                    <tr key={item.userId}>
+                      <td className="py-2 px-3 font-semibold">{item.userName}</td>
+                      <td className="py-2 px-3">{item.payableHours}h</td>
+                      <td className="py-2 px-3">{inr(item.grossSalary)}</td>
+                      <td className="py-2 px-3">{inr(item.employeePfAmount)} / {inr(item.employerPfAmount)}</td>
+                      <td className="py-2 px-3 text-amber-700">{inr(item.advanceSalaryDeduction)}</td>
+                      <td className="py-2 px-3 font-bold text-emerald-700">{inr(item.netSalary)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 border-t border-slate-100 flex justify-end gap-2">
+              <button onClick={() => setPreviewItems(null)} className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold cursor-pointer">Close</button>
+              <button onClick={handleGeneratePayroll} className="px-4 py-2 rounded-xl bg-emerald-700 text-white text-xs font-semibold cursor-pointer">Confirm &amp; Generate</button>
             </div>
           </div>
         </div>,
-        document.body
+        document.body,
       )}
 
-      {/* ── Configure Salary Modal (PUT /payroll/salaries/:employeeId) ── */}
-      {mounted && Boolean(editingSalaryEmp) && typeof document !== 'undefined' && createPortal(
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
-          onClick={() => setEditingSalaryEmp(null)}
-        >
-          <div
-            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
-              <div className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-emerald-600" />
-                <h3 className="text-sm font-bold text-slate-900">Configure Monthly Salary</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingSalaryEmp(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      {/* MODAL: MARK PAID */}
+      {mounted && payingRecord && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setPayingRecord(null)}>
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-900">Record Payment — {payingRecord.userName}</h3>
+              <button onClick={() => setPayingRecord(null)} className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
-            <form onSubmit={handleSaveSalary} className="p-6 space-y-3.5 text-xs overflow-y-auto">
-              {!editingSalaryEmp?.id && (
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Employee</label>
-                  <select
-                    required
-                    value={salaryUserId(editingSalaryEmp)}
-                    onChange={(event) => {
-                      const picked = staffOptions.find((person) => person.id === event.target.value);
-                      setEditingSalaryEmp({ userId: event.target.value, userName: picked?.name || '' });
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
-                  >
-                    {staffOptions.map((person) => (
-                      <option key={person.id} value={person.id}>{person.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {editingSalaryEmp?.id && (
-                <p className="text-xs font-semibold text-slate-700">{salaryName(editingSalaryEmp)}</p>
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Basic Salary (₹) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={formBasicSalary}
-                    onChange={(e) => setFormBasicSalary(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    HRA (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={formHra}
-                    onChange={(e) => setFormHra(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
-                  />
-                </div>
+            <form onSubmit={handleConfirmPay} className="space-y-3 text-xs">
+              <div className="p-3 rounded-xl bg-emerald-50 text-emerald-900 font-bold">
+                Net Payable: {inr(payingRecord.netSalary)}
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Allowances (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={formAllowances}
-                    onChange={(e) => setFormAllowances(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Deductions (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={formDeductions}
-                    onChange={(e) => setFormDeductions(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
-                  />
-                </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                <div className="text-[11px] font-bold uppercase text-slate-500">Employee Bank Account</div>
+                {payingBankLoading ? (
+                  <div className="text-slate-400">Loading bank details...</div>
+                ) : payingBank ? (
+                  <div className="space-y-0.5 text-slate-800">
+                    <div><b>Bank:</b> {payingBank.bankName}</div>
+                    <div><b>Holder:</b> {payingBank.accountHolderName}</div>
+                    <div><b>A/C No:</b> <span className="font-mono">{payingBank.accountNumber}</span></div>
+                    <div><b>IFSC:</b> <span className="font-mono">{payingBank.ifsc}</span></div>
+                  </div>
+                ) : (
+                  <div className="text-amber-700 font-semibold">
+                    Employee has not added bank details yet.
+                  </div>
+                )}
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Bonus (₹)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={formBonus}
-                    onChange={(e) => setFormBonus(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Overtime / hour (₹)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={formOvertimePerHour}
-                    onChange={(e) => setFormOvertimePerHour(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
-                  />
-                </div>
-              </div>
-
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Effective From
-                </label>
-                <input
-                  type="date"
-                  value={formEffectiveFrom}
-                  onChange={(e) => setFormEffectiveFrom(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-emerald-600 focus:bg-white transition"
-                />
+                <label className="block font-semibold text-slate-700 mb-1">Payment Method</label>
+                <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+                  <option value="Bank Transfer">Bank Transfer (NEFT/IMPS/RTGS)</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="Cash">Cash</option>
+                </select>
               </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditingSalaryEmp(null)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold text-xs transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingSalary}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition active:scale-95 disabled:opacity-50 hover:opacity-90 cursor-pointer"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #1b4332)' }}
-                >
-                  {savingSalary && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Save Salary</span>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Transaction Reference / UTR</label>
+                <input type="text" value={payReference} onChange={(e) => setPayReference(e.target.value)} placeholder="e.g. UTR123456789" className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Payment Date</label>
+                <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} required className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Notes</label>
+                <input type="text" value={payNotes} onChange={(e) => setPayNotes(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setPayingRecord(null)} className="px-4 py-2 rounded-xl border border-slate-200 font-semibold cursor-pointer">Cancel</button>
+                <button type="submit" disabled={payBusy} className="px-4 py-2 rounded-xl bg-emerald-700 text-white font-semibold cursor-pointer">
+                  {payBusy ? 'Processing...' : 'Confirm Payment'}
                 </button>
               </div>
             </form>
           </div>
         </div>,
-        document.body
+        document.body,
       )}
 
-      {/* ── Salary History Modal (GET /payroll/salaries/:employeeId) ── */}
-      {mounted && Boolean(historyEmp) && typeof document !== 'undefined' && createPortal(
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-white/45 backdrop-blur-md animate-in fade-in duration-200"
-          onClick={() => setHistoryEmp(null)}
-        >
-          <div
-            className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 max-h-[90vh] overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
-              <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-emerald-600" />
-                <h3 className="text-sm font-bold text-slate-900">Salary Revision History</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setHistoryEmp(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      {/* MODAL: CONFIGURE SALARY STRUCTURE */}
+      {mounted && editingSalaryEmp && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setEditingSalaryEmp(null)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-900">Configure Salary Structure &amp; PF</h3>
+              <button onClick={() => setEditingSalaryEmp(null)} className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
-            <div className="p-6 space-y-3 text-xs max-h-80 overflow-y-auto">
-              {loadingHistory ? (
-                <div className="py-8 text-center">
-                  <BouncingDotsLoader size="md" colorClass="bg-[#1b4332]" className="mx-auto mb-2" />
-                  <p className="text-slate-500 font-medium">Fetching history...</p>
+            <form onSubmit={handleSaveSalary} className="p-5 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              {editingSalaryEmp.isNew && (
+                <div className="col-span-2 sm:col-span-3">
+                  <label className="block font-semibold text-slate-700 mb-1">Employee</label>
+                  <select value={salaryForm.userId} onChange={(e) => setSalaryForm((f) => ({ ...f, userId: e.target.value }))} className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+                    {staffOptions.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                  </select>
                 </div>
-              ) : historyData.length === 0 ? (
-                <div className="py-8 text-center text-slate-400">
-                  No historical revisions recorded yet.
+              )}
+              {([
+                ['monthlySalary', 'Monthly Salary'],
+                ['basicSalary', 'Basic Salary'],
+                ['hra', 'HRA'],
+                ['da', 'DA'],
+                ['otherAllowances', 'Other Allowances'],
+                ['travelAllowance', 'Travel Allowance'],
+                ['medicalAllowance', 'Medical Allowance'],
+                ['bonus', 'Bonus'],
+                ['incentives', 'Incentives'],
+                ['overtimeRate', 'Overtime / Hr'],
+                ['workingHoursPerDay', 'Hours / Day'],
+                ['workingDaysPerMonth', 'Days / Month'],
+                ['pfWageCeiling', 'PF Wage Cap'],
+                ['employeePfRate', 'Employee PF %'],
+                ['employerPfRate', 'Employer PF %'],
+                ['loanDeduction', 'Loan Deduction'],
+                ['professionalTax', 'Professional Tax'],
+                ['tds', 'TDS'],
+              ] as const).map(([key, label]) => (
+                <div key={key}>
+                  <label className="block font-semibold text-slate-600 mb-1">{label}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={(salaryForm as any)[key]}
+                    onChange={(e) => setSalaryForm((f) => ({ ...f, [key]: Number(e.target.value) }))}
+                    className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200"
+                  />
                 </div>
-              ) : (
-                historyData.map((h: any, i: number) => (
-                  <div key={h.id || i} className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800">Basic: ₹{money(h.basicSalary).toLocaleString('en-IN')}</span>
-                      <span className="text-[10px] text-slate-400">{showDate(h.effectiveFrom)}</span>
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      HRA: ₹{money(h.hra).toLocaleString('en-IN')} • Allowances: ₹{money(h.allowances).toLocaleString('en-IN')} • Bonus: ₹{money(h.bonus).toLocaleString('en-IN')}
+              ))}
+              <div className="flex items-center gap-2 pt-5">
+                <input
+                  type="checkbox"
+                  checked={salaryForm.pfApplicable}
+                  onChange={(e) => setSalaryForm((f) => ({ ...f, pfApplicable: e.target.checked }))}
+                />
+                <label className="font-semibold text-slate-700">PF Applicable</label>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-600 mb-1">Effective From</label>
+                <input type="date" value={salaryForm.effectiveFrom} onChange={(e) => setSalaryForm((f) => ({ ...f, effectiveFrom: e.target.value }))} className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200" />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-600 mb-1">Revision Reason</label>
+                <input type="text" value={salaryForm.reason} onChange={(e) => setSalaryForm((f) => ({ ...f, reason: e.target.value }))} placeholder="Annual increment..." className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200" />
+              </div>
+              <div className="col-span-2 sm:col-span-3 flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setEditingSalaryEmp(null)} className="px-4 py-2 rounded-xl border border-slate-200 font-semibold cursor-pointer">Cancel</button>
+                <button type="submit" disabled={savingSalary} className="px-5 py-2 rounded-xl bg-emerald-700 text-white font-semibold cursor-pointer">
+                  {savingSalary ? 'Saving...' : 'Save Structure'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* MODAL: ISSUE ADVANCE */}
+      {mounted && isAdvanceModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setIsAdvanceModalOpen(false)}>
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-900">Issue Advance Salary</h3>
+              <button onClick={() => setIsAdvanceModalOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-4 h-4" /></button>
+            </div>
+            <form onSubmit={handleCreateAdvance} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Employee</label>
+                <select value={advForm.userId} onChange={(e) => setAdvForm((f) => ({ ...f, userId: e.target.value }))} className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white">
+                  {staffOptions.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Advance Amount</label>
+                  <input type="number" min="1" required value={advForm.amount} onChange={(e) => setAdvForm((f) => ({ ...f, amount: Number(e.target.value) }))} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Monthly Recovery</label>
+                  <input type="number" min="0" required value={advForm.recoveryPerMonth} onChange={(e) => setAdvForm((f) => ({ ...f, recoveryPerMonth: Number(e.target.value) }))} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+                </div>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Date</label>
+                <input type="date" value={advForm.advanceDate} onChange={(e) => setAdvForm((f) => ({ ...f, advanceDate: e.target.value }))} className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Reason</label>
+                <input type="text" value={advForm.reason} onChange={(e) => setAdvForm((f) => ({ ...f, reason: e.target.value }))} placeholder="Medical / personal..." className="w-full px-3 py-2 rounded-xl border border-slate-200" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setIsAdvanceModalOpen(false)} className="px-4 py-2 rounded-xl border border-slate-200 font-semibold cursor-pointer">Cancel</button>
+                <button type="submit" disabled={savingAdvance} className="px-4 py-2 rounded-xl bg-emerald-700 text-white font-semibold cursor-pointer">
+                  {savingAdvance ? 'Saving...' : 'Issue Advance'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* MODAL: SALARY REVISION HISTORY */}
+      {mounted && revisionEmp && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setRevisionEmp(null)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-900">Salary Revisions — {revisionEmp.userName}</h3>
+              <button onClick={() => setRevisionEmp(null)} className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-4 h-4" /></button>
+            </div>
+            {loadingRevisions ? (
+              <p className="text-xs text-slate-400">Loading...</p>
+            ) : revisions.length === 0 ? (
+              <p className="text-xs text-slate-400">No revisions recorded.</p>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto text-xs">
+                {revisions.map((rev) => (
+                  <div key={rev.id} className="p-3 rounded-xl border border-slate-200 flex justify-between items-center">
+                    <div>
+                      <div className="font-bold">{inr(rev.previousMonthlySalary)} → {inr(rev.newMonthlySalary)}</div>
+                      <div className="text-[11px] text-slate-500">Effective: {rev.effectiveFrom} • By {rev.updatedByName || 'Admin'}</div>
+                      {rev.reason && <div className="text-[11px] text-slate-600">{rev.reason}</div>}
                     </div>
                   </div>
-                ))
-              )}
+                ))}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* MODAL: PAYSLIP DETAIL */}
+      {mounted && selectedPayslip && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setSelectedPayslip(null)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 text-xs" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">{selectedPayslip.userName}</h3>
+                <p className="text-slate-500">{selectedPayslip.payrollMonth} • {selectedPayslip.status}</p>
+              </div>
+              <button onClick={() => setSelectedPayslip(null)} className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
-            <div className="px-6 py-4 border-t border-slate-100 flex justify-end bg-slate-50/50">
-              <button
-                type="button"
-                onClick={() => setHistoryEmp(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
-              >
-                Close
+            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl">
+              <div>Worked: <b>{selectedPayslip.actualWorkingHours}h</b></div>
+              <div>Overtime: <b>{selectedPayslip.overtimeHours}h</b></div>
+              <div>Paid Leave: <b>{selectedPayslip.paidLeaveDays}d</b></div>
+              <div>Unpaid Leave: <b>{selectedPayslip.unpaidLeaveDays}d</b></div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between"><span>Earned Basic</span><span>{inr(selectedPayslip.earnedBasicSalary)}</span></div>
+              <div className="flex justify-between"><span>HRA + Allowances</span><span>{inr(selectedPayslip.hra + selectedPayslip.da + selectedPayslip.otherAllowances + selectedPayslip.travelAllowance + selectedPayslip.medicalAllowance)}</span></div>
+              <div className="flex justify-between"><span>Bonus + Overtime</span><span>{inr(selectedPayslip.bonus + selectedPayslip.incentives + selectedPayslip.overtimePay)}</span></div>
+              <div className="flex justify-between font-bold border-t border-slate-100 pt-1"><span>Gross Salary</span><span>{inr(selectedPayslip.grossSalary)}</span></div>
+              <div className="flex justify-between text-rose-700"><span>Employee PF</span><span>-{inr(selectedPayslip.employeePfAmount)}</span></div>
+              <div className="flex justify-between text-rose-700"><span>Advance Recovery</span><span>-{inr(selectedPayslip.advanceSalaryDeduction)}</span></div>
+              <div className="flex justify-between text-rose-700"><span>PT + TDS + Loan + Other</span><span>-{inr(selectedPayslip.professionalTax + selectedPayslip.tds + selectedPayslip.loanDeduction + selectedPayslip.otherDeductions)}</span></div>
+              <div className="flex justify-between text-base font-black text-emerald-800 border-t border-slate-200 pt-2">
+                <span>Net Salary</span><span>{inr(selectedPayslip.netSalary)}</span>
+              </div>
+              <div className="text-[11px] text-slate-500 pt-1">
+                Employer PF (separate): {inr(selectedPayslip.employerPfAmount)}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => api.downloadPayslipFile(selectedPayslip.id)} className="px-4 py-2 rounded-xl bg-emerald-700 text-white font-semibold flex items-center gap-1.5 cursor-pointer">
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PDF</span>
               </button>
             </div>
           </div>
         </div>,
-        document.body
+        document.body,
       )}
     </div>
   );
