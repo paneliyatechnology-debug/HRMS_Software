@@ -1317,29 +1317,53 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
 
               {/* Shift Hours */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Shift Start Time *</label>
-                  <input
-                    type="text"
-                    value={scheduleData.shiftStartTime || '09:00 AM'}
-                    onChange={(e) => setScheduleData({ ...scheduleData, shiftStartTime: e.target.value })}
-                    placeholder="09:00 AM"
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-emerald-600"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Official time work begins in the morning.</p>
-                </div>
+                {(() => {
+                  const handleShiftTimeChange = (field: 'shiftStartTime' | 'shiftEndTime', value: string) => {
+                    const next = { ...scheduleData, [field]: value };
+                    const startStr = (field === 'shiftStartTime' ? value : next.shiftStartTime) || '';
+                    const endStr = (field === 'shiftEndTime' ? value : next.shiftEndTime) || '';
+                    const timePattern = /\d{1,2}:\d{2}/;
+                    if (timePattern.test(startStr) && timePattern.test(endStr)) {
+                      const startMins = parseTimeToMinutes(startStr);
+                      const endMins = parseTimeToMinutes(endStr);
+                      let diffMins = endMins - startMins;
+                      if (diffMins <= 0) diffMins += 24 * 60;
+                      const fullHours = Math.round((diffMins / 60) * 100) / 100;
+                      const halfHours = Math.round((fullHours / 2) * 100) / 100;
+                      next.workingHoursPerDay = fullHours;
+                      next.halfDayHours = halfHours;
+                    }
+                    setScheduleData(next);
+                  };
 
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Shift End Time *</label>
-                  <input
-                    type="text"
-                    value={scheduleData.shiftEndTime || '06:00 PM'}
-                    onChange={(e) => setScheduleData({ ...scheduleData, shiftEndTime: e.target.value })}
-                    placeholder="06:00 PM"
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-emerald-600"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Official shift wrap-up and punch-out time.</p>
-                </div>
+                  return (
+                    <>
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Shift Start Time *</label>
+                        <input
+                          type="text"
+                          value={scheduleData.shiftStartTime || '09:00 AM'}
+                          onChange={(e) => handleShiftTimeChange('shiftStartTime', e.target.value)}
+                          placeholder="09:00 AM"
+                          className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-emerald-600"
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">Official time work begins in the morning.</p>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">Shift End Time *</label>
+                        <input
+                          type="text"
+                          value={scheduleData.shiftEndTime || '06:00 PM'}
+                          onChange={(e) => handleShiftTimeChange('shiftEndTime', e.target.value)}
+                          placeholder="06:00 PM"
+                          className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-emerald-600"
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">Official shift wrap-up and punch-out time.</p>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Early Arrival Buffer (Minutes)</label>
@@ -1371,8 +1395,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   <label className="block font-bold text-slate-700 mb-1">Full Day Work Hours</label>
                   <input
                     type="number"
-                    min="1"
-                    max="16"
+                    min="0.5"
+                    max="24"
+                    step="0.5"
                     value={scheduleData.workingHoursPerDay || 8}
                     onChange={(e) => setScheduleData({ ...scheduleData, workingHoursPerDay: Number(e.target.value) })}
                     className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
@@ -1383,8 +1408,9 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
                   <label className="block font-bold text-slate-700 mb-1">Half Day Minimum Hours</label>
                   <input
                     type="number"
-                    min="1"
-                    max="8"
+                    min="0.5"
+                    max="12"
+                    step="0.5"
                     value={scheduleData.halfDayHours || 4}
                     onChange={(e) => setScheduleData({ ...scheduleData, halfDayHours: Number(e.target.value) })}
                     className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-emerald-600"
