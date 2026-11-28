@@ -128,11 +128,33 @@ function endExpiredSession() {
   window.dispatchEvent(new CustomEvent('hrms_session_expired'));
 }
 
-// Interceptor: handle 401 Unauthorized with automatic token refresh (POST /users/refresh)
+// Interceptor: handle transient backend restart errors (GET auto-retry) & 401 token refresh
 http.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error?.config;
+    const method = String(originalRequest?.method || 'get').toLowerCase();
+    const status = error?.response?.status;
+    const isTransientRestart =
+      !error?.response ||
+      error?.code === 'ERR_NETWORK' ||
+      error?.code === 'ECONNABORTED' ||
+      status === 502 ||
+      status === 503 ||
+      status === 504;
+
+    if (
+      originalRequest &&
+      method === 'get' &&
+      isTransientRestart &&
+      (originalRequest._restartRetryCount || 0) < 4
+    ) {
+      const attempt = (originalRequest._restartRetryCount || 0) + 1;
+      originalRequest._restartRetryCount = attempt;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+      return http(originalRequest);
+    }
+
     if (
       error.response?.status === 401 &&
       originalRequest &&
@@ -195,6 +217,7 @@ export interface CreateUserInput {
   email: string;
   phone?: string;
   gender?: string;
+  dateOfBirth?: string;
   address?: string;
   photo?: File | null;
   faceDescriptor?: string;
@@ -222,6 +245,7 @@ async function createUser(data: CreateUserInput) {
       email: data.email,
       phone: data.phone || undefined,
       gender: data.gender || undefined,
+      dateOfBirth: data.dateOfBirth || undefined,
       address: data.address || undefined,
       photo: data.photo || undefined,
       faceDescriptor: data.faceDescriptor || undefined,
@@ -854,6 +878,52 @@ async function deleteHoliday(holidayId: string) {
   } catch (error) {
     const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
     throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Holiday could not be deleted.');
+  }
+}
+
+export interface CalendarEventItem {
+  id: string;
+  companyId: string;
+  date: string;
+  title: string;
+  category: string;
+  description: string | null;
+  source: 'custom' | 'birthday';
+  employeeId: string | null;
+  createdAt: string;
+}
+
+async function getCalendarEvents(year?: number): Promise<CalendarEventItem[]> {
+  try {
+    const data = await deduplicatedGet('/attendance/events', year ? { params: { year } } : undefined);
+    const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+    return list;
+  } catch {
+    return [];
+  }
+}
+
+async function createCalendarEvent(data: { date: string; title: string; category?: string; description?: string }) {
+  try {
+    const response = await http.post('/attendance/events', data, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearApiCache('/attendance/events');
+    return response.data?.event || response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Event could not be added.');
+  }
+}
+
+async function deleteCalendarEvent(eventId: string) {
+  try {
+    const response = await http.delete(`/attendance/events/${eventId}`);
+    clearApiCache('/attendance/events');
+    return response.data;
+  } catch (error) {
+    const message = axios.isAxiosError(error) ? error.response?.data?.message : undefined;
+    throw new Error(Array.isArray(message) ? message.join(' ') : message || 'Event could not be deleted.');
   }
 }
 
@@ -2781,6 +2851,7 @@ async function createEmployee(data: any) {
     email: data.email || '',
     phone: data.phone || undefined,
     gender: data.gender || undefined,
+    dateOfBirth: data.dateOfBirth || undefined,
     address: data.address || undefined,
     role: data.role || 'EMPLOYEE',
     status: data.status || 'Active',
@@ -2807,7 +2878,7 @@ const deleteUser = deleteEmployee;
 
 async function updateEmployee(id: string, data: Record<string, unknown>) {
   const payload: Record<string, unknown> = {};
-  for (const key of ['firstName', 'lastName', 'email', 'phone', 'gender', 'address', 'role', 'status']) {
+  for (const key of ['firstName', 'lastName', 'email', 'phone', 'gender', 'dateOfBirth', 'address', 'role', 'status']) {
     if (data[key] !== undefined) payload[key] = data[key];
   }
   if (!Object.keys(payload).length) {
@@ -3136,6 +3207,9 @@ export const api = new Proxy({
   addHoliday,
   createHoliday,
   deleteHoliday,
+  getCalendarEvents,
+  createCalendarEvent,
+  deleteCalendarEvent,
   listAttendance,
   getAttendance,
   getAttendanceRecord,

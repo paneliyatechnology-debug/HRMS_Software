@@ -163,7 +163,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
   const [faceError, setFaceError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const captureRef = useRef<() => void>(() => {});
+  const captureRef = useRef<(verifiedDescriptor?: number[]) => void>(() => {});
   const blinkReadyRef = useRef(false);
   const captureLock = useRef(false);
   const profileFaceRef = useRef<number[] | null>(null);
@@ -474,7 +474,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         setFaceState('match');
         setFaceError(null);
         matchedFaceRef.current = result.descriptor;
-        captureRef.current();
+        captureRef.current(result.descriptor);
       } catch (error) {
         if (!stopped) {
           setFaceState('none');
@@ -733,7 +733,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     return canvas.toDataURL('image/jpeg', 0.9);
   };
 
-  const handleMatchAndPunch = async () => {
+  const handleMatchAndPunch = async (verifiedDescriptor?: number[]) => {
     if (captureLock.current || !videoRef.current) return;
     if (needsFace && !user.avatarUrl) {
       const message = 'Upload your profile photo first. It must clearly show your face.';
@@ -743,53 +743,47 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
     }
     captureLock.current = true;
     try {
-      const [{ matchLiveFace, profileDescriptor, sameProfileFace }, { evaluateFacePad }] = await Promise.all([
-        import('../../lib/faceMatch'),
-        import('../../lib/facePad'),
-      ]);
-      if (!user.avatarUrl) {
-        const message = 'Upload your profile photo first. It must clearly show your face.';
-        setFaceError(message);
-        notifyPunchError('Face check failed', message);
-        captureLock.current = false;
-        return;
-      }
-      const result = await matchLiveFace(videoRef.current);
-      if (!result.aligned || !result.descriptor || !result.box) {
-        setFaceState('none');
-        const message = 'Keep your face inside the circle.';
-        setFaceError(message);
-        notifyPunchError('Face check failed', message);
-        captureLock.current = false;
-        return;
-      }
-      const pad = await evaluateFacePad(videoRef.current, result.box);
-      if (pad.verdict !== 'live') {
-        setFaceState('mismatch');
-        const message = 'Photo or screen spoof detected. Show your real live face.';
-        setFaceError(message);
-        notifyPunchError('Live face required', message);
-        captureLock.current = false;
-        return;
-      }
-      if (!profileFaceRef.current) profileFaceRef.current = await profileDescriptor(user.avatarUrl);
-      if (!sameProfileFace(profileFaceRef.current, result.descriptor)) {
-        setFaceState('mismatch');
-        const message = 'This face does not match your profile photo. Clock in and clock out are blocked.';
-        setFaceError(message);
-        notifyPunchError('Face does not match', message);
-        captureLock.current = false;
-        return;
-      }
-      try {
-        await api.verifyFace(result.descriptor);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'This face does not match your profile photo.';
-        setFaceState(/does not match|profile photo/i.test(message) ? 'mismatch' : 'none');
-        setFaceError(message);
-        notifyPunchError('Face check failed', message);
-        captureLock.current = false;
-        return;
+      let descriptor = Array.isArray(verifiedDescriptor) && verifiedDescriptor.length ? verifiedDescriptor : null;
+      if (!descriptor) {
+        const [{ matchLiveFace, profileDescriptor, sameProfileFace }, { evaluateFacePad }] = await Promise.all([
+          import('../../lib/faceMatch'),
+          import('../../lib/facePad'),
+        ]);
+        if (!user.avatarUrl) {
+          const message = 'Upload your profile photo first. It must clearly show your face.';
+          setFaceError(message);
+          notifyPunchError('Face check failed', message);
+          captureLock.current = false;
+          return;
+        }
+        const result = await matchLiveFace(videoRef.current);
+        if (!result.aligned || !result.descriptor || !result.box) {
+          setFaceState('none');
+          const message = 'Keep your face inside the circle.';
+          setFaceError(message);
+          notifyPunchError('Face check failed', message);
+          captureLock.current = false;
+          return;
+        }
+        const pad = await evaluateFacePad(videoRef.current, result.box);
+        if (pad.verdict !== 'live') {
+          setFaceState('mismatch');
+          const message = 'Photo or screen spoof detected. Show your real live face.';
+          setFaceError(message);
+          notifyPunchError('Live face required', message);
+          captureLock.current = false;
+          return;
+        }
+        if (!profileFaceRef.current) profileFaceRef.current = await profileDescriptor(user.avatarUrl);
+        if (!sameProfileFace(profileFaceRef.current, result.descriptor)) {
+          setFaceState('mismatch');
+          const message = 'This face does not match your profile photo. Clock in and clock out are blocked.';
+          setFaceError(message);
+          notifyPunchError('Face does not match', message);
+          captureLock.current = false;
+          return;
+        }
+        descriptor = result.descriptor;
       }
       const photo = drawMatchedSelfie(videoRef.current);
       if (!photo) {
@@ -799,12 +793,12 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
         captureLock.current = false;
         return;
       }
-      matchedFaceRef.current = result.descriptor;
+      matchedFaceRef.current = descriptor;
       setFaceState('match');
       setFaceError(null);
       setCapturedPhoto(photo);
       stopCameraStream();
-      punchRef.current(photo, result.descriptor);
+      punchRef.current(photo, descriptor);
     } catch (error) {
       captureLock.current = false;
       setFaceState('none');
@@ -813,7 +807,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({ isOpen, onClos
       notifyPunchError('Face check failed', message);
     }
   };
-  captureRef.current = () => { void handleMatchAndPunch(); };
+  captureRef.current = (verifiedDescriptor?: number[]) => { void handleMatchAndPunch(verifiedDescriptor); };
 
   // Retake selfie
   const handleRetakeSelfie = () => {

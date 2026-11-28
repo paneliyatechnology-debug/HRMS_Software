@@ -198,8 +198,8 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     );
   };
 
-  // View state: 'grid' (Month view), 'agenda' (Chronological list), 'holidays' (Corporate holiday roster)
-  const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'holidays'>('grid');
+  // View state: 'grid' (Month view), 'agenda' (Chronological list), 'holidays' (Corporate holiday roster), 'events' (Events & Birthdays)
+  const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'holidays' | 'events'>('grid');
   const [filterType, setFilterType] = useState<'all' | 'attendance' | 'holidays'>('all');
 
   const today = useMemo(() => new Date(), []);
@@ -219,6 +219,16 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
 
   // Modal: Add Holiday
   const [isAddHolidayOpen, setIsAddHolidayOpen] = useState(false);
+  // Events & Birthdays
+  const [eventsList, setEventsList] = useState<any[]>([]);
+  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventDate, setEventDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  });
+  const [eventCategory, setEventCategory] = useState<'Anniversary' | 'Celebration' | 'Meeting' | 'Other'>('Anniversary');
+  const [eventDescription, setEventDescription] = useState('');
   // Modal: Delete Holiday
   const [deletingHoliday, setDeletingHoliday] = useState<{ id: string; name: string } | null>(null);
   const [isDeletingHoliday, setIsDeletingHoliday] = useState(false);
@@ -455,6 +465,52 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     loadHolidays();
   }, []);
 
+  const loadEvents = async (targetYear: number) => {
+    try {
+      const data = await api.getCalendarEvents(targetYear);
+      setEventsList(Array.isArray(data) ? data : []);
+    } catch {
+      setEventsList([]);
+    }
+  };
+
+  useEffect(() => {
+    loadEvents(currentDate.getFullYear());
+  }, [currentDate.getFullYear()]);
+
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!eventTitle.trim() || !eventDate) {
+      showToast({ type: 'warning', title: 'Details missing', message: 'Event title and date are required.' });
+      return;
+    }
+    try {
+      const created = await api.createCalendarEvent({
+        title: eventTitle.trim(),
+        date: eventDate,
+        category: eventCategory,
+        description: eventDescription.trim() || undefined,
+      });
+      setEventsList((prev) => [...prev, created].sort((a, b) => String(a.date).localeCompare(String(b.date))));
+      showToast({ type: 'success', title: 'Event Added', message: `${created.title} added to calendar.` });
+      setIsAddEventOpen(false);
+      setEventTitle('');
+      setEventDescription('');
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Failed to add', message: err.message || 'Could not create event.' });
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      await api.deleteCalendarEvent(eventId);
+      setEventsList((prev) => prev.filter((ev) => ev.id !== eventId));
+      showToast({ type: 'success', title: 'Event Deleted', message: 'Event removed from calendar.' });
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Delete failed', message: err.message || 'Could not delete event.' });
+    }
+  };
+
   const handleCreateHoliday = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!holidayName.trim() || !holidayDate) {
@@ -609,14 +665,29 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const prevMonthDays = new Date(year, month, 0).getDate();
 
-  // Create lookup for holidays by dateStr
+  // Create lookup for holidays by dateStr (supporting multiple holidays per day)
   const holidayDateMap: Record<string, any> = useMemo(() => {
     const map: Record<string, any> = {};
     holidaysList.forEach((h) => {
-      map[h.date] = h;
+      if (map[h.date]) {
+        map[h.date] = { ...map[h.date], name: `${map[h.date].name}, ${h.name}` };
+      } else {
+        map[h.date] = h;
+      }
     });
     return map;
   }, [holidaysList]);
+
+  const eventsByDate: Record<string, any[]> = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    eventsList.forEach((ev) => {
+      const d = String(ev.date || '').slice(0, 10);
+      if (!d) return;
+      if (!map[d]) map[d] = [];
+      map[d].push(ev);
+    });
+    return map;
+  }, [eventsList]);
 
   const userAttendance = isAdminCalendar
     ? attendance.filter((record) => !isOwnPunch(record))
@@ -665,6 +736,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         staffCount: isAdminCalendar ? dayRecords.length : 0,
         holiday: holObj?.name,
         holidayObj: holObj,
+        events: eventsByDate[dateStr] || [],
         leaves: dayLeaves,
       });
     }
@@ -684,11 +756,12 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
         dateStr,
         isWeekend: isDateWeekend(dateStr, scheduleConfig),
         leaves: dayLeaves,
+        events: eventsByDate[dateStr] || [],
       });
     }
 
     return list;
-  }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, holidayDateMap, scheduleConfig, leavesList, isAdminCalendar, joinedOn]);
+  }, [year, month, firstDayIndex, daysInMonth, prevMonthDays, userAttendance, holidayDateMap, eventsByDate, scheduleConfig, leavesList, isAdminCalendar, joinedOn]);
 
   // Executive Statistics for current month
   const stats = useMemo(() => {
@@ -908,6 +981,17 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
               <Star className="w-3.5 h-3.5" />
               <span>Holidays ({holidaysList.length})</span>
             </button>
+
+            <button
+              onClick={() => setViewMode('events')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'events'
+                ? 'bg-[#1b4332] text-white shadow-xs'
+                : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]/60'
+                }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Events ({eventsList.length})</span>
+            </button>
           </div>
 
           {/* Quick Actions */}
@@ -922,6 +1006,14 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                 >
                   <CalendarDays className="w-3.5 h-3.5 text-[#2d6a4f]" />
                   <span>Weekend Rules</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddEventOpen(true)}
+                  className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Add Event</span>
                 </button>
                 <button
                   type="button"
@@ -1138,6 +1230,24 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                         <span className="truncate">{item.leaves.length} on leave</span>
                       </div>
                     )}
+
+                    {/* Birthdays & Company Events */}
+                    {item.isCurrentMonth && Array.isArray((item as any).events) && (item as any).events.slice(0, 2).map((ev: any) => (
+                      <div
+                        key={ev.id}
+                        className={`truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 shadow-2xs ${
+                          ev.category === 'Birthday'
+                            ? 'bg-pink-50 text-pink-700 border-pink-200'
+                            : ev.category === 'Anniversary'
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                        }`}
+                        title={`${ev.category}: ${ev.title}`}
+                      >
+                        <Sparkles className="w-2.5 h-2.5 shrink-0" />
+                        <span className="truncate">{ev.title}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
@@ -1173,6 +1283,22 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
                   <span>Holiday: {selectedDayInfo.holiday}</span>
                 </span>
               )}
+
+              {Array.isArray((selectedDayInfo as any).events) && (selectedDayInfo as any).events.map((ev: any) => (
+                <span
+                  key={ev.id}
+                  className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${
+                    ev.category === 'Birthday'
+                      ? 'bg-pink-50 text-pink-700 border-pink-200'
+                      : ev.category === 'Anniversary'
+                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{ev.category}: {ev.title}</span>
+                </span>
+              ))}
 
               {selectedDayInfo.isWeekend && !selectedDayInfo.holiday && (
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#e9ecef] text-[#495057] border border-[#ced4da] shadow-2xs flex items-center gap-1.5">
@@ -1515,6 +1641,179 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
             })}
           </div>
         </div>
+      )}
+
+      {/* =========================================================================
+          VIEW MODE 4: EVENTS & BIRTHDAYS DIRECTORY
+          ========================================================================= */}
+      {viewMode === 'events' && (
+        <div className="bg-white border border-[#dee2e6] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#e9ecef]">
+            <div>
+              <h3 className="text-base font-extrabold text-[#212529]">Events &amp; Birthdays ({year})</h3>
+              <p className="text-xs text-[#6c757d]">Employee birthdays are automatically synced from employee profiles, alongside company anniversaries and events.</p>
+            </div>
+            {portalMode !== 'employee' && (
+              <button
+                type="button"
+                onClick={() => setIsAddEventOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition cursor-pointer shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Event</span>
+              </button>
+            )}
+          </div>
+
+          {eventsList.length === 0 ? (
+            <div className="py-12 text-center text-xs text-slate-400">
+              No events or birthdays found for {year}. Add employee Date of Birth or create a new event.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {eventsList.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="p-4 rounded-2xl border border-[#dee2e6] bg-[#f8f9fa]/60 flex items-start justify-between gap-3"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        ev.category === 'Birthday'
+                          ? 'bg-pink-100 text-pink-700'
+                          : ev.category === 'Anniversary'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-indigo-100 text-indigo-700'
+                      }`}
+                    >
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-900 truncate">{ev.title}</span>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                          {ev.category}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">{ev.date}</p>
+                      {ev.description && <p className="text-xs text-slate-600 mt-1">{ev.description}</p>}
+                    </div>
+                  </div>
+                  {portalMode !== 'employee' && ev.source === 'custom' && (
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteEvent(ev.id)}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                      title="Delete Event"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL: ADD EVENT
+          ========================================================================= */}
+      {mounted && isAddEventOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAddEventOpen(false);
+          }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/45 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 my-auto"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Add Calendar Event</h3>
+                  <p className="text-xs text-slate-500">Anniversary, celebration, or company event</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddEventOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateEvent} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Event Title</label>
+                <input
+                  type="text"
+                  value={eventTitle}
+                  onChange={(e) => setEventTitle(e.target.value)}
+                  placeholder="e.g. Company 5th Anniversary"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+                  <select
+                    value={eventCategory}
+                    onChange={(e) => setEventCategory(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 bg-white"
+                  >
+                    <option value="Anniversary">Anniversary</option>
+                    <option value="Celebration">Celebration</option>
+                    <option value="Meeting">Meeting</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Description (Optional)</label>
+                <textarea
+                  value={eventDescription}
+                  onChange={(e) => setEventDescription(e.target.value)}
+                  rows={2}
+                  placeholder="Event details..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddEventOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer"
+                >
+                  Save Event
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* =========================================================================

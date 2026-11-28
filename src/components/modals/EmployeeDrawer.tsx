@@ -80,6 +80,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
     email: '',
     phone: '',
     gender: 'Male' as const,
+    dateOfBirth: '',
     role: 'EMPLOYEE' as Role,
     address: '',
     avatarUrl: '',
@@ -263,6 +264,7 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim(),
         gender: formData.gender,
+        dateOfBirth: formData.dateOfBirth || undefined,
         role: formData.role || 'EMPLOYEE',
         address: formData.address.trim(),
         ...(photoFile ? { photo: photoFile, faceDescriptor: photoFace ? JSON.stringify(photoFace) : '' } : {}),
@@ -682,6 +684,21 @@ export const EmployeeDrawer: React.FC<EmployeeDrawerProps> = ({
                     <option value="Other">Other</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Date of Birth (Birthday) */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Date of Birth (Birthday)
+                </label>
+                <input
+                  id="input-employee-dob"
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => updateField('dateOfBirth', e.target.value)}
+                  max={new Date().toISOString().slice(0, 10)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white"
+                />
               </div>
 
               {/* System Access Role */}

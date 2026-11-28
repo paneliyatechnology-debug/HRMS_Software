@@ -34,7 +34,7 @@ import { getRoleDefinition } from '../../lib/roleConfig';
 import { useModalOverlay } from '../../lib/useModalOverlay';
 import { getTodayRecordForEmployee, getTodayDateString, parseTimeStringToTimestamp } from '../../lib/attendanceService';
 import { compressImage, validateImageFile } from '../../lib/imageUtils';
-import { api } from '../../lib/api';
+import { api, clearApiCache } from '../../lib/api';
 import { ProfilePhotoCard } from '../common/ProfilePhotoCard';
 import {
   calculateEmployeeLeaveBalances,
@@ -68,6 +68,82 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [isEditingEmp, setIsEditingEmp] = useState(false);
+  const [savingEmp, setSavingEmp] = useState(false);
+  const [editForm, setEditForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    gender: 'Male',
+    dateOfBirth: '',
+    address: '',
+    role: 'EMPLOYEE',
+    status: 'Active',
+  });
+
+  const openEditEmployee = () => {
+    if (!currentEmp) return;
+    setEditForm({
+      firstName: currentEmp.firstName || '',
+      lastName: currentEmp.lastName || '',
+      email: currentEmp.email || '',
+      phone: currentEmp.phone || '',
+      gender: currentEmp.gender || 'Male',
+      dateOfBirth: currentEmp.dateOfBirth ? String(currentEmp.dateOfBirth).slice(0, 10) : '',
+      address: currentEmp.address || '',
+      role: String(currentEmp.role || 'EMPLOYEE').toUpperCase(),
+      status: currentEmp.status || 'Active',
+    });
+    setPhotoError(null);
+    setPhotoSuccess(null);
+    setIsEditingEmp(true);
+  };
+
+  const handleSaveEmployeeEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentEmp) return;
+    setSavingEmp(true);
+    setPhotoError(null);
+    try {
+      await api.updateEmployee(currentEmp.id, {
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim(),
+        email: editForm.email.trim().toLowerCase(),
+        phone: editForm.phone.trim() || null,
+        gender: editForm.gender,
+        dateOfBirth: editForm.dateOfBirth || null,
+        address: editForm.address.trim() || null,
+        role: editForm.role,
+        status: editForm.status,
+      });
+      clearApiCache('/attendance/events');
+      setCurrentEmp((prev) =>
+        prev
+          ? {
+              ...prev,
+              firstName: editForm.firstName.trim(),
+              lastName: editForm.lastName.trim(),
+              email: editForm.email.trim().toLowerCase(),
+              phone: editForm.phone.trim(),
+              gender: editForm.gender as any,
+              dateOfBirth: editForm.dateOfBirth || '',
+              address: editForm.address.trim(),
+              role: editForm.role as any,
+              status: editForm.status as any,
+            }
+          : prev,
+      );
+      setIsEditingEmp(false);
+      setPhotoSuccess('Employee details updated successfully.');
+      window.dispatchEvent(new CustomEvent('hrms_employees_updated'));
+      onRefresh?.();
+    } catch (err: any) {
+      setPhotoError(err?.message || 'Could not update employee details.');
+    } finally {
+      setSavingEmp(false);
+    }
+  };
   const [empLeaveSummary, setEmpLeaveSummary] = useState<ResolvedLeaveQuotaSummary | null>(null);
   const [empDynamicLeave, setEmpDynamicLeave] = useState<ReturnType<typeof calculateEmployeeLeaveBalances> | null>(null);
   const [empLeaveRequests, setEmpLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -634,6 +710,19 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
           {/* Right: Actions & Close Button */}
           <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            {portalMode === 'admin' && (
+              <button
+                type="button"
+                onClick={() => (isEditingEmp ? setIsEditingEmp(false) : openEditEmployee())}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                  isEditingEmp
+                    ? 'bg-slate-100 text-slate-700 border-slate-200'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                }`}
+              >
+                {isEditingEmp ? 'Cancel Edit' : 'Edit Details'}
+              </button>
+            )}
             {!isPageMode && onClose && (
               <button
                 onClick={onClose}
@@ -645,6 +734,121 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
             )}
           </div>
         </div>
+
+        {isEditingEmp && portalMode === 'admin' && (
+          <form onSubmit={handleSaveEmployeeEdit} className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1">First Name</label>
+              <input
+                type="text"
+                required
+                value={editForm.firstName}
+                onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
+                className="w-full px-3 py-1.5 rounded-xl border border-slate-200"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1">Last Name</label>
+              <input
+                type="text"
+                required
+                value={editForm.lastName}
+                onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
+                className="w-full px-3 py-1.5 rounded-xl border border-slate-200"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1">Email</label>
+              <input
+                type="email"
+                required
+                value={editForm.email}
+                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                className="w-full px-3 py-1.5 rounded-xl border border-slate-200"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1">Phone</label>
+              <input
+                type="text"
+                value={editForm.phone}
+                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                className="w-full px-3 py-1.5 rounded-xl border border-slate-200"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1">Date of Birth (Birthday)</label>
+              <input
+                type="date"
+                value={editForm.dateOfBirth}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setEditForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+                className="w-full px-3 py-1.5 rounded-xl border border-slate-200"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1">Gender</label>
+              <select
+                value={editForm.gender}
+                onChange={(e) => setEditForm((f) => ({ ...f, gender: e.target.value }))}
+                className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+              >
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1">Role</label>
+              <select
+                value={editForm.role}
+                onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+                className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+              >
+                <option value="EMPLOYEE">Employee</option>
+                <option value="MANAGER">Manager</option>
+                <option value="HR">HR</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1">Status</label>
+              <select
+                value={editForm.status}
+                onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white"
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            <div>
+              <label className="block font-semibold text-slate-600 mb-1">Address</label>
+              <input
+                type="text"
+                value={editForm.address}
+                onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
+                className="w-full px-3 py-1.5 rounded-xl border border-slate-200"
+              />
+            </div>
+            <div className="sm:col-span-3 flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsEditingEmp(false)}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingEmp}
+                className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold disabled:opacity-50 cursor-pointer"
+              >
+                {savingEmp ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       {/* â•â•â• CLEAN HORIZONTAL NAVIGATION TABS â•â•â• */}

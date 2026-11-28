@@ -1,5 +1,5 @@
 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model';
-const MATCH_DISTANCE = 0.36;
+const MATCH_DISTANCE = 0.32;
 
 type FaceApi = typeof import('@vladmandic/face-api');
 
@@ -512,9 +512,9 @@ export async function matchLiveFace(video: HTMLVideoElement) {
   canvas.height = height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return { aligned: false, descriptor: null as number[] | null, eye: null as number | null, box: null as { x: number; y: number; width: number; height: number } | null };
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.62 });
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.62 });
   ctx.drawImage(video, 0, 0, width, height);
-  const faces = await faceapi.detectAllFaces(canvas, options).withFaceLandmarks().withFaceDescriptors();
+  const faces = await faceapi.detectAllFaces(canvas, options).withFaceLandmarks(true).withFaceDescriptors();
   const clear = faces.filter((face) => face.detection.score >= 0.62);
   if (clear.length !== 1) return { aligned: false, descriptor: null as number[] | null, eye: null as number | null, box: null as { x: number; y: number; width: number; height: number } | null };
   const found = clear[0];

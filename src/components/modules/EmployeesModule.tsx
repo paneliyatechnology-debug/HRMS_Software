@@ -16,11 +16,12 @@ import {
   MessageSquare,
   Shield,
   RotateCcw,
+  Pencil,
 } from 'lucide-react';
 import { Employee, Department } from '../../types/hrms';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
-import { api } from '../../lib/api';
+import { api, clearApiCache } from '../../lib/api';
 import { useCompanyLive } from '../../lib/useCompanyLive';
 import { getRoleDefinition } from '../../lib/roleConfig';
 import { canDeleteUser } from '../../lib/rolePermissions';
@@ -78,7 +79,81 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
   const [statusLoadingId, setStatusLoadingId] = useState<string | null>(null);
   const [photoRequests, setPhotoRequests] = useState<Array<{ id: string; userName: string; role: string; email: string }>>([]);
   const [photoRequestBusy, setPhotoRequestBusy] = useState<string | null>(null);
+  const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    gender: 'Male',
+    dateOfBirth: '',
+    address: '',
+    role: 'EMPLOYEE',
+    status: 'Active',
+  });
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenEditModal = (emp: Employee) => {
+    setEditingEmp(emp);
+    setEditForm({
+      firstName: emp.firstName || '',
+      lastName: emp.lastName || '',
+      email: emp.email || '',
+      phone: emp.phone || '',
+      gender: emp.gender || 'Male',
+      dateOfBirth: emp.dateOfBirth ? String(emp.dateOfBirth).slice(0, 10) : '',
+      address: emp.address || '',
+      role: String(emp.role || 'EMPLOYEE').toUpperCase(),
+      status: emp.status || 'Active',
+    });
+  };
+
+  const handleSaveEditEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEmp) return;
+    setEditSaving(true);
+    try {
+      await api.updateEmployee(editingEmp.id, {
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim(),
+        email: editForm.email.trim().toLowerCase(),
+        phone: editForm.phone.trim() || null,
+        gender: editForm.gender,
+        dateOfBirth: editForm.dateOfBirth || null,
+        address: editForm.address.trim() || null,
+        role: editForm.role,
+        status: editForm.status,
+      });
+      clearApiCache('/attendance/events');
+      setLocalEmployees((prev) =>
+        prev.map((item) =>
+          item.id === editingEmp.id
+            ? {
+                ...item,
+                firstName: editForm.firstName.trim(),
+                lastName: editForm.lastName.trim(),
+                email: editForm.email.trim().toLowerCase(),
+                phone: editForm.phone.trim(),
+                gender: editForm.gender as any,
+                dateOfBirth: editForm.dateOfBirth || '',
+                address: editForm.address.trim(),
+                role: editForm.role as any,
+                status: editForm.status as any,
+              }
+            : item,
+        ),
+      );
+      showToast({ type: 'success', title: 'Employee Updated', message: `${editForm.firstName} ${editForm.lastName} updated.` });
+      setEditingEmp(null);
+      window.dispatchEvent(new CustomEvent('hrms_employees_updated'));
+      onRefresh?.();
+    } catch (err: any) {
+      showToast({ type: 'error', title: 'Update Failed', message: err?.message || 'Could not update employee.' });
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (employees && employees.length > 0) {
@@ -663,6 +738,17 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                       )}
                       <button
                         type="button"
+                        onClick={() => handleOpenEditModal(emp)}
+                        className="group inline-flex items-center justify-center p-2 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition-all duration-200 cursor-pointer"
+                        title="Edit Employee"
+                      >
+                        <Pencil className="w-3.5 h-3.5 shrink-0" />
+                        <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                          Edit
+                        </span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleOpenNoticeModal(emp)}
                         className="group inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 bg-white hover:bg-amber-50 hover:border-amber-200 text-slate-600 hover:text-amber-700 text-xs font-semibold transition-all duration-200 cursor-pointer"
                         title="Send Notice"
@@ -888,6 +974,19 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                             <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                             <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
                               Chat
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            id={`btn-edit-${emp.id}`}
+                            onClick={() => handleOpenEditModal(emp)}
+                            className="group inline-flex items-center justify-center p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs shadow-2xs transition-all duration-200 cursor-pointer"
+                            title="Edit employee"
+                          >
+                            <Pencil className="w-3.5 h-3.5 shrink-0" />
+                            <span className="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[64px] group-hover:opacity-100 group-hover:ml-1.5 transition-all duration-200 whitespace-nowrap">
+                              Edit
                             </span>
                           </button>
 
@@ -1134,6 +1233,152 @@ export const EmployeesModule: React.FC<EmployeesModuleProps> = ({
                 <span>{noticeLoading ? 'Sending...' : 'Send Notice'}</span>
               </button>
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {editingEmp && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingEmp(null);
+          }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden my-auto"
+          >
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Edit Employee</h3>
+                  <p className="text-xs text-slate-500">{editingEmp.firstName} {editingEmp.lastName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingEmp(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveEditEmployee} className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">First Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.firstName}
+                  onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Last Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.lastName}
+                  onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Phone</label>
+                <input
+                  type="text"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Date of Birth (Birthday)</label>
+                <input
+                  type="date"
+                  value={editForm.dateOfBirth}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setEditForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Gender</label>
+                <select
+                  value={editForm.gender}
+                  onChange={(e) => setEditForm((f) => ({ ...f, gender: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                >
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Role</label>
+                <select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                >
+                  <option value="EMPLOYEE">Employee</option>
+                  <option value="MANAGER">Manager</option>
+                  <option value="HR">HR</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Status</label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block font-semibold text-slate-700 mb-1">Address</label>
+                <input
+                  type="text"
+                  value={editForm.address}
+                  onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200"
+                />
+              </div>
+              <div className="sm:col-span-2 flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingEmp(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSaving}
+                  className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold disabled:opacity-50 cursor-pointer"
+                >
+                  {editSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body

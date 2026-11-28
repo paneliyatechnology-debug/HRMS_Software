@@ -156,8 +156,8 @@ export async function evaluateFacePad(video, box) {
     const latencyMs = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
 
     let verdict = 'spoof';
-    if (liveScore >= 0.72) verdict = 'live';
-    else if (liveScore >= 0.45) verdict = 'uncertain';
+    if (liveScore >= 0.80) verdict = 'live';
+    else if (liveScore >= 0.50) verdict = 'uncertain';
 
     return {
       ready: true,

@@ -220,6 +220,11 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   const [selectedEmp, setSelectedEmp] = useState('All');
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedDesig, setSelectedDesig] = useState('All');
+  const [selectedDate, setSelectedDate] = useState(() => getTodayDateString());
+  const [dateRecords, setDateRecords] = useState<AttendanceRecord[]>([]);
+  const [dateLoading, setDateLoading] = useState(false);
+  const [attendancePage, setAttendancePage] = useState(1);
+  const [attendancePageSize, setAttendancePageSize] = useState(10);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const mNames = [
       'January', 'February', 'March', 'April', 'May', 'June',
@@ -248,6 +253,83 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       hasLoadedDataRef.current = true;
     }
   }, [employees, records]);
+
+  useEffect(() => {
+    if (isEmployeeView) return;
+    const todayStr = getTodayDateString();
+    if (!selectedDate || selectedDate === todayStr) {
+      setDateRecords([]);
+      return;
+    }
+    let cancelled = false;
+    setDateLoading(true);
+    api.getAttendance({ date: selectedDate, limit: 100 })
+      .then((res: any) => {
+        if (cancelled) return;
+        const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+        setDateRecords(list);
+      })
+      .catch(() => {
+        if (!cancelled) setDateRecords([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDateLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [selectedDate, isEmployeeView]);
+
+  useEffect(() => {
+    setAttendancePage(1);
+  }, [attendanceSearch, selectedDept, selectedEmp, selectedDesig, selectedDate, isEmployeeView, attendancePageSize]);
+
+  const renderPaginationBar = (totalItems: number) => {
+    if (totalItems <= 0) return null;
+    const totalPages = Math.max(1, Math.ceil(totalItems / attendancePageSize));
+    const safePage = Math.min(attendancePage, totalPages);
+    const startItem = (safePage - 1) * attendancePageSize + 1;
+    const endItem = Math.min(totalItems, safePage * attendancePageSize);
+    return (
+      <div className="px-4 sm:px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+        <div className="flex items-center gap-2">
+          <span>
+            Showing <span className="font-semibold text-slate-800">{startItem}–{endItem}</span> of{' '}
+            <span className="font-semibold text-slate-800">{totalItems}</span>
+          </span>
+          <select
+            value={attendancePageSize}
+            onChange={(e) => setAttendancePageSize(Number(e.target.value) || 10)}
+            className="py-1 px-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700"
+            aria-label="Rows per page"
+          >
+            <option value={10}>10 / page</option>
+            <option value={25}>25 / page</option>
+            <option value={50}>50 / page</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={safePage <= 1}
+            onClick={() => setAttendancePage((p) => Math.max(1, p - 1))}
+            className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition"
+          >
+            Prev
+          </button>
+          <span className="px-2 font-medium text-slate-700">
+            Page {safePage} of {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={safePage >= totalPages}
+            onClick={() => setAttendancePage((p) => Math.min(totalPages, p + 1))}
+            className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const isDataLoading = Boolean(
     loading || (!hasLoadedDataRef.current && portalMode === 'admin' && employees.length === 0)
@@ -735,15 +817,12 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
     const score = Math.min(100, Math.round((effectivePresent / workingDays) * 100));
     const avgDailyHours = effectivePresent > 0 ? (totalWorkSeconds / 3600 / effectivePresent).toFixed(1) : '0.0';
 
-    const distinctLogs: AttendanceRecord[] = [];
-    const seenIds = new Set<string>();
-    [...extraDetailRecs, ...allEmpRecs].forEach((r) => {
-      const key = r.id || `${r.date}-${r.checkIn}-${r.checkOut || 'active'}`;
-      if (!seenIds.has(key)) {
-        seenIds.add(key);
-        distinctLogs.push(r);
-      }
+    const distinctByDate = new Map<string, AttendanceRecord>();
+    [...allEmpRecs, ...extraDetailRecs].forEach((r) => {
+      const key = r.date || r.id || `${r.checkIn}-${r.checkOut || 'active'}`;
+      distinctByDate.set(key, r);
     });
+    const distinctLogs = Array.from(distinctByDate.values());
 
     return {
       presentDays,
@@ -787,7 +866,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
   }, [isEmployeeView, selfEmployee, attQ, employees]);
 
   const getEmpTodayRecord = (emp: Employee): AttendanceRecord | null => {
-    const today = getTodayDateString();
+    const todayStr = getTodayDateString();
+    const targetDate = !isEmployeeView && selectedDate ? selectedDate : todayStr;
+    const isTodaySelected = targetDate === todayStr;
     const candIds = [
       emp.id,
       (emp as any)._id,
@@ -807,13 +888,24 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       return false;
     };
 
-    const dbRec = records.find((r) => r.date === today && isMatch(r));
+    if (!isTodaySelected) {
+      const fromSelectedDate = dateRecords.find(
+        (r) => ((r.date || (r as any).workDate) === targetDate) && isMatch(r),
+      );
+      if (fromSelectedDate) return fromSelectedDate;
+      const fromRecords = records.find(
+        (r) => ((r.date || (r as any).workDate) === targetDate) && isMatch(r),
+      );
+      return fromRecords || null;
+    }
+
+    const dbRec = records.find((r) => r.date === targetDate && isMatch(r));
     if (dbRec) return dbRec;
 
     const rec = getTodayRecordForEmployee(emp.id);
     if (rec && isEmployeeView) return rec;
 
-    const live = liveRecords.find((r) => r.date === today && isMatch(r));
+    const live = liveRecords.find((r) => r.date === targetDate && isMatch(r));
     if (live) return live;
 
     return null;
@@ -905,7 +997,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
       const active = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
       const breakSeconds = Number(session.totalBreakSeconds) || 0;
       const workSeconds = Number(session.durationSeconds) || 0;
-      map.set(session.id, ({
+      map.set(cleanDate, ({
         id: session.id,
         employeeId: session.employeeId || selfEmployee?.id || myEmpId,
         employeeName: session.employeeName || (selfEmployee ? `${selfEmployee.firstName} ${selfEmployee.lastName}`.trim() : ''),
@@ -1060,7 +1152,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
               ? (attendance.status === 'PRESENT' ? 'Present' : attendance.status)
               : 'Present';
 
-      const existingToday = map.get(todayKey);
+      const existingToday =
+        map.get(todayKey) ||
+        Array.from(map.values()).find((r) => r.date === todayKey);
 
       const authoritativeTodayRec: AttendanceRecord = {
         ...(existingToday || {}),
@@ -1091,6 +1185,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
         isLive: hasActive,
       } as any;
 
+      for (const [k, v] of map.entries()) {
+        if (v.date === todayKey && k !== todayKey) map.delete(k);
+      }
       map.set(todayKey, authoritativeTodayRec);
     }
 
@@ -1644,6 +1741,30 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                 )}
               </div>
             )}
+            {!isEmployeeView && resolvedTab === 'today' && (
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  max={getTodayDateString()}
+                  onChange={(e) => setSelectedDate(e.target.value || getTodayDateString())}
+                  className="py-1.5 px-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+                  title="Filter attendance by date"
+                />
+                {selectedDate !== getTodayDateString() && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDate(getTodayDateString())}
+                    className="py-1.5 px-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition cursor-pointer"
+                  >
+                    Today
+                  </button>
+                )}
+                {dateLoading && (
+                  <span className="text-[11px] font-medium text-slate-400">Loading...</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Filters dropdowns for Summary */}
@@ -1666,8 +1787,10 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
 
       {/* TAB: Today's Live Attendance & Break Tracker */}
       {resolvedTab === 'today' && (() => {
-        const todayDate = getTodayDateString();
-        const mergedRecords = Array.isArray(records) && records.length > 0 ? records : liveRecords;
+        const todayDate = !isEmployeeView && selectedDate ? selectedDate : getTodayDateString();
+        const mergedRecords = !isEmployeeView && selectedDate !== getTodayDateString()
+          ? dateRecords
+          : (Array.isArray(records) && records.length > 0 ? records : liveRecords);
         const employeeTodayRecords = employees
           .map((emp) => getEmpTodayRecord(emp))
           .filter(Boolean) as AttendanceRecord[];
@@ -1854,7 +1977,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                     <>
                       {/* Mobile Cards View (Visible on < md) */}
                       <div className="md:hidden divide-y divide-slate-100">
-                        {employeeDailyRecords.map((rec, recIdx) => {
+                        {employeeDailyRecords
+                          .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
+                          .map((rec, recIdx) => {
                           const dateInfo = formatDailyDate(rec.date);
                           const isToday = dateInfo.isToday;
                           const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
@@ -1982,7 +2107,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {employeeDailyRecords.map((rec, recIdx) => {
+                            {employeeDailyRecords
+                              .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
+                              .map((rec, recIdx) => {
                               const dateInfo = formatDailyDate(rec.date);
                               const isToday = dateInfo.isToday;
                               const isWorking = isToday && !rec.isCompleted && !rec.isOnBreak && !rec.checkOut && Boolean(rec.checkIn && rec.checkIn !== '—');
@@ -2119,6 +2246,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                           </tbody>
                         </table>
                       </div>
+                      {renderPaginationBar(employeeDailyRecords.length)}
                     </>
                   )}
                 </>
@@ -2178,7 +2306,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                         )}
                       </div>
                     ) : (
-                      visibleEmployees.map((emp) => {
+                      visibleEmployees
+                        .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
+                        .map((emp) => {
                         const rec = getEmpTodayRecord(emp);
                         const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
                         const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
@@ -2362,7 +2492,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             </td>
                           </tr>
                         ) : (
-                          visibleEmployees.map((emp) => {
+                          visibleEmployees
+                        .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
+                        .map((emp) => {
                             const rec = getEmpTodayRecord(emp);
                             const isDone = rec && (rec.isCompleted || Boolean(rec.checkOut && rec.checkOut !== '—') || (rec as any).status === 'Completed');
                             const isOnBreak = rec && !isDone && Boolean(rec.isOnBreak);
@@ -2524,6 +2656,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       </tbody>
                     </table>
                   </div>
+                  {renderPaginationBar(visibleEmployees.length)}
                 </>
               )}            </div>
           </div>
@@ -2888,7 +3021,9 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                             </td>
                           </tr>
                         ) : (
-                          visibleEmployees.map((emp) => {
+                          visibleEmployees
+                        .slice((attendancePage - 1) * attendancePageSize, attendancePage * attendancePageSize)
+                        .map((emp) => {
                             const metrics = getEmployeeMonthlyMetrics(emp);
                             const todayRec = getEmpTodayRecord(emp);
                             const isWorkingNow = todayRec && !todayRec.isCompleted && !todayRec.isOnBreak;
@@ -3040,6 +3175,7 @@ export const AttendanceModule: React.FC<AttendanceModuleProps> = ({
                       </tbody>
                     </table>
                   </div>
+                  {renderPaginationBar(visibleEmployees.length)}
                 </>
               )}
             </div>
