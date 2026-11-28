@@ -16,8 +16,9 @@ import {
 } from 'lucide-react';
 import { useWorkSession } from '../../context/WorkSessionContext';
 import { ModernDigitClock } from './ModernDigitClock';
-import { verifyShiftTimeWindow } from '../../lib/shiftScheduleService';
+import { verifyShiftTimeWindow, parseTimeToMinutes } from '../../lib/shiftScheduleService';
 import { formatSecondsToHMS } from '../../lib/attendanceService';
+import { api } from '../../lib/api';
 
 interface DailyShiftConsoleProps {
   className?: string;
@@ -48,12 +49,45 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
     activeSession,
     lastCompletedSession,
     todaySummary,
+    attendanceLogic,
     actionLoading,
     checkIn,
     takeBreak,
     resumeWork,
     checkOut,
   } = useWorkSession();
+
+  const [targetHours, setTargetHours] = useState<number>(() => {
+    const sc = verifyShiftTimeWindow();
+    let diff = parseTimeToMinutes(sc.shiftEnd) - parseTimeToMinutes(sc.shiftStart);
+    if (diff <= 0) diff += 24 * 60;
+    return Math.round((diff / 60) * 10) / 10;
+  });
+
+  useEffect(() => {
+    let active = true;
+    const syncTarget = async () => {
+      try {
+        const s: any = (attendanceLogic as any)?.settings || (await api.getAttendanceSettings());
+        const startStr = s?.shiftStart || s?.shiftStartTime;
+        const endStr = s?.shiftEnd || s?.shiftEndTime;
+        if (active && startStr && endStr) {
+          let diff = parseTimeToMinutes(String(endStr)) - parseTimeToMinutes(String(startStr));
+          if (diff <= 0) diff += 24 * 60;
+          const hrs = Math.round((diff / 60) * 10) / 10;
+          if (hrs > 0 && hrs <= 24) setTargetHours(hrs);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    syncTarget();
+    window.addEventListener('hrms_settings_updated', syncTarget);
+    return () => {
+      active = false;
+      window.removeEventListener('hrms_settings_updated', syncTarget);
+    };
+  }, [attendanceLogic]);
 
   // Current Live Clock for header / not_started display
   const [currentSystemTime, setCurrentSystemTime] = useState('');
@@ -110,7 +144,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
               </h3>
               <p className="text-xs text-[#5c6b63] truncate mt-0.5 font-medium">
                 {status === 'working'
-                  ? `In at ${formatTimeStr(activeSession?.startTime) || 'Recently'} • Target: 9.0h`
+                  ? `In at ${formatTimeStr(activeSession?.startTime) || 'Recently'} • Target: ${targetHours}h`
                   : status === 'on_break'
                     ? 'Break in progress • Work timer paused'
                     : status === 'completed'
@@ -355,7 +389,7 @@ export const DailyShiftConsole: React.FC<DailyShiftConsoleProps> = ({
                     </span>
                   </div>
                   <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-100/60 px-2 py-0.5 rounded-md shrink-0">
-                    Target: 9.0h
+                    Target: {targetHours}h
                   </span>
                 </div>
 

@@ -401,6 +401,25 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
             if (data.company) setCompanyData((prev) => ({ ...prev, ...data.company }));
             if (data.workSchedule) {
               setScheduleData((prev) => ({ ...prev, ...data.workSchedule }));
+            } else if (data.shiftStart || data.shiftEnd) {
+              const localCfg = getWorkScheduleConfig(adminCompanyId);
+              const startStr = data.shiftStart
+                ? formatMinutesToTimeString(parseTimeToMinutes(String(data.shiftStart)))
+                : localCfg.shiftStartTime;
+              const endStr = data.shiftEnd
+                ? formatMinutesToTimeString(parseTimeToMinutes(String(data.shiftEnd)))
+                : localCfg.shiftEndTime;
+              let diffM = parseTimeToMinutes(endStr) - parseTimeToMinutes(startStr);
+              if (diffM <= 0) diffM += 24 * 60;
+              const fullH = Math.round((diffM / 60) * 100) / 100;
+              setScheduleData({
+                ...localCfg,
+                shiftStartTime: startStr,
+                shiftEndTime: endStr,
+                gracePeriodMinutes: data.graceMinutes !== undefined ? Number(data.graceMinutes) : localCfg.gracePeriodMinutes,
+                workingHoursPerDay: fullH || localCfg.workingHoursPerDay,
+                halfDayHours: fullH ? Math.round((fullH / 2) * 100) / 100 : localCfg.halfDayHours,
+              });
             } else {
               setScheduleData(getWorkScheduleConfig(adminCompanyId));
             }
@@ -443,15 +462,24 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({ portalMode: prop
         carryForwardLimit: Math.max(0, Number(leavePolicyData.carryForwardLimit) || 0),
       };
       setLeavePolicyData(sanitizedLeavePolicy);
-      await api.updateSettings({
-        company: companyData,
-        workSchedule: scheduleData,
-        leavePolicy: sanitizedLeavePolicy,
-        payrollPolicy: {
-          payCycle: 'Monthly',
-          disbursementDate: 28,
-          pfContributionPercent: 12,
-        },
+      const toHHmm = (timeStr?: string, fallback = '09:30') => {
+        if (!timeStr || !/\d{1,2}:\d{2}/.test(timeStr)) return fallback;
+        const mins = ((parseTimeToMinutes(timeStr) % 1440) + 1440) % 1440;
+        const hh = String(Math.floor(mins / 60)).padStart(2, '0');
+        const mm = String(mins % 60).padStart(2, '0');
+        return `${hh}:${mm}`;
+      };
+      const shiftStart24 = toHHmm(scheduleData.shiftStartTime, '09:30');
+      const shiftEnd24 = toHHmm(scheduleData.shiftEndTime, '18:30');
+      const weeklyOffsStr = Array.isArray(scheduleData.weekendDays) && scheduleData.weekendDays.length > 0
+        ? scheduleData.weekendDays.join(',')
+        : '0';
+
+      await api.saveAttendanceSettings({
+        shiftStart: shiftStart24,
+        shiftEnd: shiftEnd24,
+        graceMinutes: Number(scheduleData.gracePeriodMinutes ?? 15),
+        weeklyOffs: weeklyOffsStr,
       });
 
       if (typeof window !== 'undefined') {
