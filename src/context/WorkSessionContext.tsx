@@ -391,14 +391,8 @@ export const WorkSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const backendTotalWorkedSecs = Number(logic.totalMinutes || 0) * 60;
     const backendTotalBreakSecs = Number(logic.breakMinutes || 0) * 60;
-    const priorWorkedSecs = Math.max(
-      segmented.priorWorkedSeconds,
-      segmented.sessions.length === 0 ? backendTotalWorkedSecs : 0
-    );
-    const priorBreakSecs = Math.max(
-      segmented.priorBreakSeconds,
-      segmented.sessions.length === 0 ? backendTotalBreakSecs : 0
-    );
+    const priorWorkedSecs = segmented.priorWorkedSeconds;
+    const priorBreakSecs = segmented.priorBreakSeconds;
 
     if (resolved === 'working') {
       let startMs =
