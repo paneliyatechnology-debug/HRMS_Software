@@ -986,7 +986,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
 
   if (!mounted || isLoading || !isAuthenticated) {
     return (
-      <div className="h-screen w-full bg-[#e9ecef] flex flex-col items-center justify-center gap-3">
+      <div className="h-screen w-full bg-[#f4f8f5] flex flex-col items-center justify-center gap-3">
         <BouncingDotsLoader size="lg" />
         {!mounted || isLoading ? (
           <img src="/brand-name.png" alt="myown hrms" className="h-5 w-auto object-contain" />
@@ -998,7 +998,7 @@ export function HrmsAppShell({ initialModule, initialSubTab }: HrmsAppShellProps
   }
 
   return (
-    <div className="hrms-app-shell h-screen w-full bg-[#e9ecef] text-[#212529] flex font-sans antialiased overflow-hidden relative">
+    <div className="hrms-app-shell h-screen w-full bg-[#f4f8f5] text-[#212529] flex font-sans antialiased overflow-hidden relative">
 
       {/* Left Sidebar */}
       <Sidebar

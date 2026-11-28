@@ -18,7 +18,6 @@ import {
   AlertTriangle,
   Smartphone,
   Receipt,
-  Lock,
   Home,
   Users,
   CalendarOff,
@@ -32,15 +31,12 @@ import {
   ShieldCheck,
   FileText,
   Layers,
-  LayoutGrid,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { useWorkSession } from '../context/WorkSessionContext';
 import { LiveClock } from './common/LiveClock';
 import { getAllCompanies, resolveCompanyBrandAvatar } from '../lib/companyService';
-import { checkEmployeePunchEligibility } from '../lib/attendanceService';
-import { isModuleAllowedForUser, canUserPunch, canCreateUser } from '../lib/rolePermissions';
+import { isModuleAllowedForUser, canCreateUser } from '../lib/rolePermissions';
 import { api } from '../lib/api';
 import { getSharpAvatarUrl } from '../lib/imageUtils';
 
@@ -229,23 +225,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Dynamic Work Availability Status
   const [workStatus, setWorkStatus] = useState<string>('Working in Office');
-
-  // Dynamic Clock In / Clock Out Status & Actions from unified Work Session Context
-  const { status: punchStatus, checkIn, checkOut, actionLoading, punchBlockMessage } = useWorkSession();
-  const clockClosed = Boolean(punchBlockMessage) && punchStatus !== 'working' && punchStatus !== 'on_break';
-
-  const handleHeaderPunchClick = () => {
-    if (actionLoading || punchStatus === 'on_break') return;
-    if (clockClosed) {
-      showToast({ title: 'Clock closed', message: punchBlockMessage || 'Clock in is not allowed today.', type: 'warning' });
-      return;
-    }
-    if (punchStatus === 'working') {
-      checkOut();
-    } else {
-      checkIn();
-    }
-  };
 
   const displayCompanyName = (
     companyInfo.name ||
@@ -613,32 +592,15 @@ export const Header: React.FC<HeaderProps> = ({
         {portalMode !== 'admin' && (() => {
           const isApplyLeaveActive = isLeaveModalOpen;
           const isPayslipsActive = (activeModule === 'payslips' || activeModule === 'payroll') && !isLeaveModalOpen;
-          const isChatActive = activeModule === 'chat' && !isLeaveModalOpen;
           const getBtnCls = (active: boolean) =>
-            `group relative inline-flex items-center justify-center p-2 rounded-[10px] active:scale-95 border shadow-2xs transition-all cursor-pointer shrink-0 ${active
-              ? 'bg-[#1b4332] text-white border-[#1b4332]'
-              : 'bg-[#f8f9fa] hover:bg-[#d8f3dc] text-[#343a40] hover:text-[#1b4332] border-[#dee2e6] hover:border-[#95d5b2]'
+            `group relative inline-flex items-center justify-center w-9 h-9 rounded-full active:scale-95 border shadow-2xs transition-all cursor-pointer shrink-0 ${active
+              ? 'bg-[#075B3D] text-white border-[#075B3D]'
+              : 'bg-[#f4f8f5] hover:bg-[#ddf3e5] text-[#176b4d] hover:text-[#075B3D] border-[#dce6df] hover:border-[#b7dec7]'
             }`;
           const tooltipCls =
             'pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 -translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 z-50';
           return (
-            <div className="flex items-center gap-1.5 shrink-0">
-              {onOpenSearchModal && (
-                <button
-                  id="btn-header-quick-apps"
-                  type="button"
-                  onClick={onOpenSearchModal}
-                  className={getBtnCls(false)}
-                  aria-label="Quick Apps"
-                >
-                  <LayoutGrid className="w-4 h-4 shrink-0 text-[#2d6a4f]" />
-                  <span className={tooltipCls}>
-                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
-                    Quick Apps (Ctrl+K)
-                  </span>
-                </button>
-              )}
-
+            <div className="flex items-center gap-2 shrink-0">
               {!resigned && isModuleAllowedForUser('leaves', user) && (
                 <button
                   id="btn-header-apply-leave"
@@ -647,7 +609,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className={getBtnCls(isApplyLeaveActive)}
                   aria-label="Apply Leave"
                 >
-                  <Calendar className={`w-4 h-4 shrink-0 ${isApplyLeaveActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <Calendar className={`w-4 h-4 shrink-0 ${isApplyLeaveActive ? 'text-white' : 'text-[#176b4d]'}`} />
                   <span className={tooltipCls}>
                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
                     Apply Leave
@@ -663,26 +625,10 @@ export const Header: React.FC<HeaderProps> = ({
                   className={getBtnCls(isPayslipsActive)}
                   aria-label="My Payslips"
                 >
-                  <Receipt className={`w-4 h-4 shrink-0 ${isPayslipsActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
+                  <Receipt className={`w-4 h-4 shrink-0 ${isPayslipsActive ? 'text-white' : 'text-[#176b4d]'}`} />
                   <span className={tooltipCls}>
                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
                     My Payslips
-                  </span>
-                </button>
-              )}
-
-              {!resigned && isModuleAllowedForUser('chat', user) && (
-                <button
-                  id="btn-header-chat"
-                  type="button"
-                  onClick={() => (onOpenChat ? onOpenChat() : onNavigateModule?.('chat'))}
-                  className={getBtnCls(isChatActive)}
-                  aria-label="Team Chat"
-                >
-                  <MessageSquare className={`w-4 h-4 shrink-0 ${isChatActive ? 'text-white' : 'text-[#2d6a4f]'}`} />
-                  <span className={tooltipCls}>
-                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
-                    Team Chat
                   </span>
                 </button>
               )}
@@ -690,73 +636,29 @@ export const Header: React.FC<HeaderProps> = ({
           );
         })()}
 
-        {/* Quick Dynamic Clock In / Clock Out Button (Direct Action — No Popup, Blocked on Break) */}
-        {canUserPunch(user) && (
-          <div className="flex items-center gap-2 min-w-0">
-            <button
-              id="btn-header-punch-toggle"
-              type="button"
-              onClick={handleHeaderPunchClick}
-              disabled={actionLoading || punchStatus === 'on_break' || clockClosed}
-              className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-[9px] text-xs font-semibold shadow-2xs transition-colors shrink-0 border ${punchStatus === 'on_break' || clockClosed
-                ? 'bg-amber-50 text-amber-800 border-amber-200 cursor-not-allowed select-none'
-                : punchStatus === 'working'
-                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300 cursor-pointer disabled:opacity-50'
-                  : 'bg-[#2d6a4f] hover:bg-[#1b4332] text-white border-[#2d6a4f] cursor-pointer disabled:opacity-50'
-                }`}
-              title={
-                clockClosed
-                  ? punchBlockMessage || 'Clock in is not allowed today.'
-                  : punchStatus === 'on_break'
-                    ? 'Clock Out is blocked while on break. Please resume work first.'
-                    : punchStatus === 'working'
-                      ? 'Currently clocked in. Click to Clock Out immediately'
-                      : punchStatus === 'completed'
-                        ? 'Previous session clocked out. Click to Clock In again'
-                        : 'Click to Clock In and start your work timer'
-              }
-            >
-              {clockClosed ? (
-                <>
-                  <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                  <span>Clock closed</span>
-                </>
-              ) : punchStatus === 'on_break' ? (
-                <>
-                  <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="hidden min-[480px]:inline">On Break</span>
-                </>
-              ) : punchStatus === 'working' ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
-                  <span className="hidden min-[480px]:inline">
-                    {actionLoading ? 'Clocking Out...' : 'Clock Out'}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Clock className="w-3.5 h-3.5 text-white shrink-0" />
-                  <span className="hidden min-[480px]:inline">
-                    {actionLoading ? 'Clocking In...' : 'Clock In'}
-                  </span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
         {!resigned && (
         <div ref={noticeRef} className="relative shrink-0">
           <button
+            id="btn-header-notifications"
             type="button"
             onClick={() => setNotificationsOpen((open) => !open)}
-            className="relative p-2 rounded-[10px] hover:bg-[#f8f9fa] text-[#343a40] cursor-pointer"
-            title="Notifications"
+            className={`group relative inline-flex items-center justify-center w-9 h-9 rounded-full active:scale-95 border shadow-2xs transition-all cursor-pointer shrink-0 ${
+              notificationsOpen
+                ? 'bg-[#075B3D] text-white border-[#075B3D]'
+                : 'bg-[#f4f8f5] hover:bg-[#ddf3e5] text-[#176b4d] hover:text-[#075B3D] border-[#dce6df] hover:border-[#b7dec7]'
+            }`}
+            aria-label="Notifications"
           >
-            <Bell className="w-4 h-4" />
+            <Bell className={`w-4 h-4 shrink-0 ${notificationsOpen ? 'text-white' : 'text-[#176b4d]'}`} />
             {unreadNoticesCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#2d6a4f] text-white text-[10px] font-bold flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 rounded-full bg-[#EF4444] text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
                 {unreadNoticesCount > 9 ? '9+' : unreadNoticesCount}
+              </span>
+            )}
+            {!notificationsOpen && (
+              <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 -translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 z-50">
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
+                Notifications
               </span>
             )}
           </button>
