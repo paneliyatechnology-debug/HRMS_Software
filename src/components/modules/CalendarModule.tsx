@@ -30,8 +30,10 @@ import {
   Award,
   CalendarOff,
   UserMinus,
+  ChevronDown,
 } from 'lucide-react';
 import { AttendanceRecord, LeaveRequest } from '../../types/hrms';
+import { ThemedDatePicker } from '../modals/LeaveModal';
 import { api } from '../../lib/api';
 import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
@@ -201,6 +203,9 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   // View state: 'grid' (Month view), 'agenda' (Chronological list), 'holidays' (Corporate holiday roster), 'events' (Events & Birthdays)
   const [viewMode, setViewMode] = useState<'grid' | 'agenda' | 'holidays' | 'events'>('grid');
   const [filterType, setFilterType] = useState<'all' | 'attendance' | 'holidays'>('all');
+  const [listScope, setListScope] = useState<'month' | 'day'>('month');
+  const [hoveredDay, setHoveredDay] = useState<number | null>(null);
+  const [holidayTypeDropdownOpen, setHolidayTypeDropdownOpen] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const todayYear = today.getFullYear();
@@ -669,11 +674,7 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
   const holidayDateMap: Record<string, any> = useMemo(() => {
     const map: Record<string, any> = {};
     holidaysList.forEach((h) => {
-      if (map[h.date]) {
-        map[h.date] = { ...map[h.date], name: `${map[h.date].name}, ${h.name}` };
-      } else {
-        map[h.date] = h;
-      }
+      map[h.date] = h;
     });
     return map;
   }, [holidaysList]);
@@ -817,1899 +818,1390 @@ export const CalendarModule: React.FC<CalendarModuleProps> = ({
     });
   }, [holidaysList, holidaySearchQuery, holidayTypeFilter]);
 
+  // Build Monday-first mini calendar grid for the left panel
+  const miniCalendarDays = (() => {
+    const firstDow = new Date(year, month, 1).getDay();
+    const mondayOffset = (firstDow + 6) % 7;
+    const totalMonthDays = new Date(year, month + 1, 0).getDate();
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    const prevMonthDate = new Date(year, month - 1, 1);
+    const prevY = prevMonthDate.getFullYear();
+    const prevM = prevMonthDate.getMonth() + 1;
+    const nextMonthDate = new Date(year, month + 1, 1);
+    const nextY = nextMonthDate.getFullYear();
+    const nextM = nextMonthDate.getMonth() + 1;
+
+    const currentMonthMap = new Map<number, any>();
+    days.forEach((d) => {
+      if (d.isCurrentMonth) currentMonthMap.set(d.day, d);
+    });
+
+    const cells: any[] = [];
+    for (let i = mondayOffset - 1; i >= 0; i--) {
+      const dNum = prevMonthLastDay - i;
+      const dateStr = `${prevY}-${String(prevM).padStart(2, '0')}-${String(dNum).padStart(2, '0')}`;
+      cells.push({ day: dNum, isCurrentMonth: false, dateStr, leaves: [] });
+    }
+    for (let d = 1; d <= totalMonthDays; d++) {
+      const existing = currentMonthMap.get(d);
+      if (existing) {
+        cells.push(existing);
+      } else {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        cells.push({ day: d, isCurrentMonth: true, dateStr, leaves: [] });
+      }
+    }
+    const totalSlots = Math.ceil(cells.length / 7) * 7;
+    const rem = totalSlots - cells.length;
+    for (let i = 1; i <= rem; i++) {
+      const dateStr = `${nextY}-${String(nextM).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      cells.push({ day: i, isCurrentMonth: false, dateStr, leaves: [] });
+    }
+    return cells;
+  })();
+
+  const selectedDateStr = selectedDay
+    ? `${year}-${String(month + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`
+    : `${year}-${String(month + 1).padStart(2, '0')}-01`;
+
+  const effectiveListScope = listScope;
+  const activeDay = selectedDay;
+  const activeDayInfo = selectedDayInfo;
+  const activeDateStr = selectedDateStr;
+
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const todayDateStr = `${todayYear}-${String(todayMonth + 1).padStart(2, '0')}-${String(todayDateNum).padStart(2, '0')}`;
+
+  const formatDisplayDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    if (dateStr === todayDateStr) return 'Today';
+    const parsed = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return dateStr;
+    return parsed.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+  };
+
+  type CalendarFeedItem = {
+    id: string;
+    kind: 'holiday' | 'leave' | 'attendance' | 'weekend';
+    title: string;
+    subtitle: string;
+    meta?: string;
+    badge: string;
+    badgeTone: string;
+    dotColor: string;
+    sortDate: string;
+    holidayId?: string;
+    holidayName?: string;
+    avatarLetter?: string;
+  };
+
+  const feedItems: CalendarFeedItem[] = (() => {
+    const items: CalendarFeedItem[] = [];
+
+    const relevantHolidays = effectiveListScope === 'day'
+      ? holidaysList.filter((h) => normalizeDate(h.date) === activeDateStr)
+      : holidaysList.filter((h) => normalizeDate(h.date).startsWith(monthPrefix));
+
+    relevantHolidays.forEach((h: any, idx: number) => {
+      const hDate = normalizeDate(h.date);
+      const hType = h.type || 'Public';
+      const hId = h._id || h.id || `hol-${idx}`;
+      items.push({
+        id: `holiday-${hId}`,
+        kind: 'holiday',
+        title: h.name || 'Company Holiday',
+        subtitle: `${formatDisplayDate(hDate)} · ${hType} Holiday`,
+        meta: h.description || undefined,
+        badge: hType,
+        badgeTone:
+          hType === 'Optional'
+            ? 'bg-amber-50 text-amber-800 border-amber-200'
+            : hType === 'Company'
+              ? 'bg-emerald-50 text-[#1b4332] border-[#95d5b2]'
+              : 'bg-slate-100 text-slate-700 border-slate-200',
+        dotColor: 'bg-[#f97316]',
+        sortDate: hDate,
+        holidayId: h._id || h.id,
+        holidayName: h.name,
+      });
+    });
+
+    const relevantLeaves = effectiveListScope === 'day'
+      ? (activeDayInfo?.leaves || [])
+      : leavesList.filter((lv) => {
+        if (!lv || lv.status === 'Rejected' || (lv.status as string) === 'Cancelled') return false;
+        const s = normalizeDate(lv.startDate);
+        const e = normalizeDate(lv.endDate) || s;
+        return s.startsWith(monthPrefix) || e.startsWith(monthPrefix);
+      });
+
+    relevantLeaves.forEach((lv: LeaveRequest, idx: number) => {
+      const empName = resolveLeaveEmployeeName(lv);
+      const deptName = resolveLeaveDepartment(lv);
+      const isOwn = isOwnLeave(lv);
+      const s = normalizeDate(lv.startDate);
+      const e = normalizeDate(lv.endDate) || s;
+      const dateRange = s === e ? formatDisplayDate(s) : `${formatDisplayDate(s)} – ${formatDisplayDate(e)}`;
+      const isApproved = lv.status === 'Approved';
+
+      items.push({
+        id: `leave-${lv.id || idx}`,
+        kind: 'leave',
+        title: `${empName}${isOwn ? ' (You)' : ''} · ${lv.leaveType || 'Leave'}`,
+        subtitle: `${dateRange}${lv.isHalfDay ? ' · Half Day' : ''}`,
+        meta: lv.reason ? `${deptName} · ${lv.reason}` : deptName,
+        badge: lv.status || 'Pending',
+        badgeTone: isApproved
+          ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
+          : 'bg-amber-50 text-amber-800 border-amber-200',
+        dotColor: 'bg-[#0ea5e9]',
+        sortDate: s,
+        avatarLetter: empName.charAt(0).toUpperCase(),
+      });
+    });
+
+    if (!isAdminCalendar) {
+      const relevantAtt = effectiveListScope === 'day'
+        ? userAttendance.filter((a) => a.date === activeDateStr)
+        : userAttendance.filter((a) => String(a.date || '').startsWith(monthPrefix));
+
+      relevantAtt.forEach((att, idx) => {
+        const isLate = att.status === 'Late';
+        const isAbsent = att.status === 'Absent';
+        items.push({
+          id: `att-${att.id || att.date || idx}`,
+          kind: 'attendance',
+          title: `Attendance · ${att.status}`,
+          subtitle: `${formatDisplayDate(att.date)} · ${att.checkIn || '--'} – ${att.checkOut || 'Active'}`,
+          meta: att.workingHours ? `${att.workingHours} hrs logged` : undefined,
+          badge: att.status,
+          badgeTone: isAbsent
+            ? 'bg-rose-50 text-rose-700 border-rose-200'
+            : isLate
+              ? 'bg-amber-50 text-amber-800 border-amber-200'
+              : 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]',
+          dotColor: isAbsent ? 'bg-[#ef4444]' : 'bg-[#16a34a]',
+          sortDate: att.date,
+        });
+      });
+    } else if (effectiveListScope === 'day' && activeDayInfo && (activeDayInfo.staffCount ?? 0) > 0) {
+      items.push({
+        id: `staff-count-${activeDateStr}`,
+        kind: 'attendance',
+        title: 'Staff Attendance Recorded',
+        subtitle: `${formatDisplayDate(activeDateStr)} · ${activeDayInfo.staffCount} team member${activeDayInfo.staffCount === 1 ? '' : 's'} clocked in`,
+        badge: 'Confirmed',
+        badgeTone: 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]',
+        dotColor: 'bg-[#16a34a]',
+        sortDate: activeDateStr,
+      });
+    }
+
+    if (effectiveListScope === 'day' && activeDayInfo?.isWeekend && !activeDayInfo?.holiday) {
+      items.push({
+        id: `weekend-${activeDateStr}`,
+        kind: 'weekend',
+        title: 'Scheduled Weekend Off',
+        subtitle: `${formatDisplayDate(activeDateStr)} · Company non-working day`,
+        meta: getWeekendPolicyDescription(scheduleConfig),
+        badge: 'Week Off',
+        badgeTone: 'bg-slate-100 text-slate-700 border-slate-200',
+        dotColor: 'bg-slate-400',
+        sortDate: activeDateStr,
+      });
+    }
+
+    return items.sort((a, b) => a.sortDate.localeCompare(b.sortDate));
+  })();
+
   return (
-    <div className="space-y-5 w-full select-none">
-      {/* =========================================================================
-          TOP EXECUTIVE METRICS CARDS
-          ========================================================================= */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-        {/* Card 1: Month Overview */}
-        <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Month</span>
-            <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
-              <CalendarIcon className="w-4 h-4 text-[#495057]" />
-            </div>
-          </div>
-          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
-            {monthNames[month].slice(0, 3)} {year}
-          </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#6c757d] font-medium">
-            <span>{stats.totalDays} Total Days</span>
-          </div>
+    <div className="space-y-4 w-full select-none">
+      {/* Top Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              handleJumpToToday();
+              setListScope('day');
+            }}
+            className="px-3 py-1.5 rounded-xl border border-[#dee2e6] bg-white hover:bg-[#f8f9fa] text-xs font-semibold text-[#495057] transition cursor-pointer"
+          >
+            Today
+          </button>
         </div>
 
-        {/* Card 2: Working Days */}
-        <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">Working Days</span>
-            <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
-              <Briefcase className="w-4 h-4 text-[#495057]" />
-            </div>
-          </div>
-          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
-            {stats.workingDays} <span className="text-xs font-semibold text-[#6c757d]">Days</span>
-          </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#2d6a4f] font-semibold">
-            <span>Excludes weekends</span>
-          </div>
-        </div>
-
-        {/* Card 3: Days Logged / Present */}
-        <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">{isAdminCalendar ? 'Staff Present' : 'Logged In'}</span>
-            <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-4 h-4 text-[#2d6a4f]" />
-            </div>
-          </div>
-          <p className="text-lg font-semibold tracking-tight text-[#1b4332] mt-1">
-            {stats.presentCount + stats.lateCount} <span className="text-xs font-semibold text-[#6c757d]">Days</span>
-          </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#2d6a4f] font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]" />
-            <span>{isAdminCalendar ? 'Employees this month' : `${stats.completionPercent}% Attendance`}</span>
-          </div>
-        </div>
-
-        {/* Card 4: Official Holidays */}
-        <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">Holidays</span>
-            <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
-              <Star className="w-4 h-4 text-[#2d6a4f]" />
-            </div>
-          </div>
-          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
-            {stats.holidaysCount} <span className="text-xs font-semibold text-[#6c757d]">Days</span>
-          </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#495057] font-medium">
-            <span>Official gazetted</span>
-          </div>
-        </div>
-
-        {/* Card 5: Hours Worked */}
-        <div className="p-4 rounded-xl bg-white border border-[#dee2e6] shadow-2xs hover:border-[#95d5b2] transition-all col-span-2 sm:col-span-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-[#6c757d] uppercase tracking-wider">{isAdminCalendar ? 'Team Hours' : 'Tracked Hours'}</span>
-            <div className="w-8 h-8 rounded-[10px] border border-[#ced4da] bg-[#f8f9fa] flex items-center justify-center shrink-0">
-              <Clock className="w-4 h-4 text-[#495057]" />
-            </div>
-          </div>
-          <p className="text-lg font-semibold tracking-tight text-[#212529] mt-1">
-            {stats.totalHoursWorked} <span className="text-xs font-semibold text-[#6c757d]">Hrs</span>
-          </p>
-          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-[#495057] font-medium">
-            <span>{stats.weekendsCount} weekend days &bull; {stats.holidaysCount} holidays</span>
-          </div>
-        </div>
-      </div>
-
-      {/* =========================================================================
-          CONTROLS BAR: Navigation, View Switcher & Filters
-          ========================================================================= */}
-      <div className="bg-white border border-[#dee2e6] rounded-xl p-3 sm:p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-        {/* Left: Month Navigation */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center rounded-xl border border-[#dee2e6] bg-[#f8f9fa] p-1">
+        <div className="flex flex-wrap items-center gap-2 ml-auto">
+          {!isAdminCalendar && onOpenClockModal && (
             <button
-              onClick={handlePrevMonth}
-              className="p-1.5 rounded-lg text-[#495057] hover:text-[#1b4332] hover:bg-white transition cursor-pointer"
-              title="Previous Month"
+              type="button"
+              onClick={onOpenClockModal}
+              className="px-3.5 py-2 rounded-xl border border-[#dee2e6] bg-white hover:bg-[#f8f9fa] text-xs font-semibold text-[#212529] flex items-center gap-1.5 transition cursor-pointer"
             >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleJumpToToday}
-              className="px-3 py-1 text-xs font-bold text-[#1b4332] hover:bg-[#d8f3dc] rounded-lg transition cursor-pointer flex items-center gap-1.5"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]" />
-              <span>Today</span>
-            </button>
-            <button
-              onClick={handleNextMonth}
-              className="p-1.5 rounded-lg text-[#495057] hover:text-[#1b4332] hover:bg-white transition cursor-pointer"
-              title="Next Month"
-            >
-              <ChevronRight className="w-4 h-4" />
+              <Clock className="w-3.5 h-3.5 text-[#2d6a4f]" />
+              <span>Clock In / Out</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <h2 className="text-base sm:text-lg font-extrabold text-[#212529] tracking-tight">
-              {monthNames[month]} {year}
-            </h2>
-            <span className="hidden md:inline-block px-2.5 py-0.5 rounded-full bg-[#d8f3dc] border border-[#95d5b2] text-[#1b4332] text-[10px] font-bold">
-              Q{Math.floor(month / 3) + 1}
-            </span>
-          </div>
-        </div>
-
-        {/* Center / Right: View Mode Toggle & Quick Actions */}
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-          {/* View Mode Switcher */}
-          <div className="flex items-center p-1 rounded-xl bg-[#f8f9fa] border border-[#dee2e6] text-xs font-semibold">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'grid'
-                ? 'bg-[#1b4332] text-white shadow-xs'
-                : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]/60'
-                }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Month Grid</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('agenda')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'agenda'
-                ? 'bg-[#1b4332] text-white shadow-xs'
-                : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]/60'
-                }`}
-            >
-              <ListOrdered className="w-3.5 h-3.5" />
-              <span>Agenda</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('holidays')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'holidays'
-                ? 'bg-[#1b4332] text-white shadow-xs'
-                : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]/60'
-                }`}
-            >
-              <Star className="w-3.5 h-3.5" />
-              <span>Holidays ({holidaysList.length})</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('events')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'events'
-                ? 'bg-[#1b4332] text-white shadow-xs'
-                : 'text-[#495057] hover:text-[#1b4332] hover:bg-[#d8f3dc]/60'
-                }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Events ({eventsList.length})</span>
-            </button>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="flex items-center gap-2">
-            {portalMode !== 'employee' && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleOpenWeekendModal}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#f8f9fa] border border-[#ced4da] text-[#212529] hover:text-[#1b4332] text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer"
-                  title="Configure Corporate Weekend Policy"
-                >
-                  <CalendarDays className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                  <span>Weekend Rules</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAddEventOpen(true)}
-                  className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Add Event</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAddHolidayOpen(true)}
-                  className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Holiday</span>
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* =========================================================================
-          VIEW MODE 1: LUXURY MONTH GRID
-          ========================================================================= */}
-      {viewMode === 'grid' && (
-        <div className="bg-white border border-[#dee2e6] rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
-          {/* Legend Badges Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#e9ecef] text-xs">
-            <div className="flex items-center gap-1.5 text-[#495057] text-[11px] font-semibold">
-              <Filter className="w-3.5 h-3.5 text-[#2d6a4f]" />
-              <span>Status Legend:</span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 text-[11px] font-semibold">
-              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#74c69d]">
-                <span className="w-2 h-2 rounded-full bg-[#2d6a4f]" /> Today
-              </span>
-              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#1b4332] text-white border border-[#081c15]">
-                <Star className="w-2.5 h-2.5 text-[#95d5b2] fill-[#95d5b2]" /> Holiday
-              </span>
-              <span
-                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#e9ecef] text-[#495057] border border-[#ced4da]"
-                title={`Company Weekend Schedule: ${getWeekendPolicyDescription(scheduleConfig)}`}
-              >
-                <span className="w-2 h-2 rounded-full bg-[#6c757d]" /> Weekend ({getWeekendPolicyDescription(scheduleConfig)})
-              </span>
-              {!isAdminCalendar && (
-                <>
-                  <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] border border-[#95d5b2]">
-                    <span className="w-2 h-2 rounded-full bg-[#40916c]" /> Present
-                  </span>
-                  <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                    <span className="w-2 h-2 rounded-full bg-rose-500" /> Absent
-                  </span>
-                </>
-              )}
-              {isAdminCalendar && (
-                <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d8f3dc]/70 text-[#1b4332] border border-[#95d5b2]">
-                  <span className="w-2 h-2 rounded-full bg-[#40916c]" /> Staff present
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Weekday Names Header */}
-          <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center bg-[#1b4332] rounded-xl p-1.5 shadow-2xs">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => {
-              const isWeekend = (scheduleConfig.weekendDays ?? [0]).includes(i) || (i === 6 && (scheduleConfig.saturdayRule || 'none') !== 'none');
-              return (
-                <div
-                  key={d}
-                  className={`text-[11px] font-bold uppercase tracking-wider py-1.5 rounded-lg ${isWeekend
-                    ? 'text-[#b7e4c7] bg-white/10'
-                    : 'text-white'
-                    }`}
-                >
-                  {d}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Days Grid Cells */}
-          <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5 pt-0.5">
-            {days.map((item, idx) => {
-              const isToday =
-                item.isCurrentMonth &&
-                item.day === todayDateNum &&
-                month === todayMonth &&
-                year === todayYear;
-              const isSelected = item.isCurrentMonth && !item.beforeJoining && item.day === selectedDay;
-
-              let cellStyle = 'bg-white border-[#dee2e6] hover:border-[#52b788] hover:bg-[#d8f3dc]/20';
-              if (item.beforeJoining) {
-                cellStyle = 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed';
-              } else if (!item.isCurrentMonth) {
-                cellStyle = 'bg-[#f8f9fa]/70 text-[#adb5bd] border-[#e9ecef] pointer-events-none opacity-65';
-              } else if (isToday && isSelected) {
-                cellStyle = 'border-[#1b4332] ring-2 ring-[#2d6a4f]/30 bg-[#d8f3dc]/55 shadow-xs';
-              } else if (isToday) {
-                cellStyle = 'border-[#2d6a4f] bg-[#d8f3dc]/45 hover:bg-[#d8f3dc]/60 shadow-2xs';
-              } else if (isSelected) {
-                cellStyle = 'border-[#2d6a4f] ring-2 ring-[#2d6a4f]/25 bg-[#d8f3dc]/25 shadow-xs';
-              } else if (item.holiday) {
-                cellStyle = 'bg-[#d8f3dc]/35 border-[#95d5b2] hover:border-[#2d6a4f]';
-              } else if (item.isWeekend) {
-                cellStyle = 'bg-[#f1f3f5] border-[#dee2e6] hover:border-[#adb5bd] text-[#495057]';
-              }
-
-              return (
-                <div
-                  key={idx}
-                  onClick={() => {
-                    if (item.beforeJoining || !item.isCurrentMonth) return;
-                    setSelectedDay(item.day);
-                  }}
-                  onMouseEnter={(e) => {
-                    if (item.beforeJoining) return;
-                    handleCellMouseEnter(e, item);
-                  }}
-                  onMouseLeave={handleCellMouseLeave}
-                  className={`min-h-[78px] sm:min-h-[116px] p-1.5 sm:p-2.5 rounded-xl border transition-all duration-150 flex flex-col justify-between group ${item.beforeJoining ? 'cursor-not-allowed' : 'cursor-pointer'} ${cellStyle}`}
-                >
-                  {/* Day Number Header */}
-                  <div className="flex items-center justify-between gap-1">
-                    <span
-                      className={`text-xs font-extrabold w-7 h-7 flex items-center justify-center rounded-full transition-all ${isToday
-                        ? 'bg-[#2d6a4f] text-white shadow-xs'
-                        : isSelected
-                          ? 'bg-[#1b4332] text-white shadow-xs'
-                          : !item.isCurrentMonth
-                            ? 'text-[#adb5bd]'
-                            : item.isWeekend
-                              ? 'text-[#495057] group-hover:text-[#1b4332]'
-                              : 'text-[#212529] group-hover:bg-[#d8f3dc] group-hover:text-[#1b4332]'
-                        }`}
-                    >
-                      {item.day}
-                    </span>
-
-                    <div className="flex items-center gap-1">
-                      {isToday && (
-                        <span className="hidden sm:inline-block px-1.5 py-0.5 rounded-full bg-[#1b4332] text-white text-[9px] font-bold uppercase tracking-wide">
-                          Today
-                        </span>
-                      )}
-                      {item.holiday && (
-                        <span className="p-1 rounded-full bg-[#1b4332] text-[#95d5b2]" title={item.holiday}>
-                          <Star className="w-3 h-3 fill-[#95d5b2] text-[#95d5b2]" />
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Day Badges and Event Tags: ONLY official holidays and weekends */}
-                  <div className="space-y-1 mt-1 text-[10px]">
-                    {item.beforeJoining && (
-                      <div className="truncate px-2 py-0.5 rounded-md bg-slate-200 text-slate-500 font-semibold border border-slate-300" title="This day is before the employee joined">
-                        Not joined
-                      </div>
-                    )}
-                    {item.holiday && !item.beforeJoining && (
-                      <div
-                        className="truncate px-2 py-0.5 rounded-md bg-[#1b4332] text-white font-semibold border border-[#081c15] shadow-2xs flex items-center gap-1"
-                        title={`Holiday: ${item.holiday}`}
-                      >
-                        <Star className="w-2.5 h-2.5 fill-[#95d5b2] text-[#95d5b2] shrink-0" />
-                        <span className="truncate">{item.holiday}</span>
-                      </div>
-                    )}
-
-                    {/* Weekend Tag */}
-                    {item.isWeekend && !item.holiday && !item.beforeJoining && item.isCurrentMonth && (
-                      <div
-                        className="truncate px-2 py-0.5 rounded-md bg-white text-[#495057] font-semibold border border-[#ced4da] flex items-center gap-1.5"
-                        title="Weekend"
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#6c757d] shrink-0" />
-                        <span className="truncate">Weekend</span>
-                      </div>
-                    )}
-
-                    {isAdminCalendar && (item.staffCount ?? 0) > 0 && !item.holiday && !item.isWeekend && (
-                      <div className="truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]">
-                        <Users className="w-2.5 h-2.5 shrink-0 text-[#2d6a4f]" />
-                        <span className="truncate">{item.staffCount} staff</span>
-                      </div>
-                    )}
-
-                    {/* Attendance Record Status (Regular Working Days Only) */}
-                    {!isAdminCalendar && item.attendance && !item.beforeJoining && !item.holiday && !item.isWeekend && (
-                      <div
-                        className={`truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 ${item.attendance.status === 'Present'
-                          ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
-                          : item.attendance.status === 'Late'
-                            ? 'bg-[#f8f9fa] text-[#343a40] border-[#adb5bd]'
-                            : 'bg-rose-50 text-rose-700 border-rose-200'
-                          }`}
-                        title={`${item.attendance.status} • ${item.attendance.checkIn || '--'} to ${item.attendance.checkOut || '--'}`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.attendance.status === 'Present'
-                            ? 'bg-[#2d6a4f]'
-                            : item.attendance.status === 'Late'
-                              ? 'bg-[#6c757d]'
-                              : 'bg-rose-500'
-                            }`}
-                        />
-                        <span className="truncate">{item.attendance.status}</span>
-                      </div>
-                    )}
-
-                    {/* Employees on Leave Badge */}
-                    {item.isCurrentMonth && !item.beforeJoining && item.leaves && item.leaves.length > 0 && (
-                      <div
-                        className="truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 bg-amber-50 text-amber-900 border-amber-200 shadow-2xs"
-                        title={`${item.leaves.length} employee(s) on leave`}
-                      >
-                        <CalendarOff className="w-2.5 h-2.5 shrink-0 text-amber-700" />
-                        <span className="truncate">{item.leaves.length} on leave</span>
-                      </div>
-                    )}
-
-                    {/* Birthdays & Company Events */}
-                    {item.isCurrentMonth && Array.isArray((item as any).events) && (item as any).events.slice(0, 2).map((ev: any) => (
-                      <div
-                        key={ev.id}
-                        className={`truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 shadow-2xs ${
-                          ev.category === 'Birthday'
-                            ? 'bg-pink-50 text-pink-700 border-pink-200'
-                            : ev.category === 'Anniversary'
-                              ? 'bg-purple-50 text-purple-700 border-purple-200'
-                              : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                        }`}
-                        title={`${ev.category}: ${ev.title}`}
-                      >
-                        <Sparkles className="w-2.5 h-2.5 shrink-0" />
-                        <span className="truncate">{ev.title}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          SELECTED DAY INSPECTOR / DETAILS CARD
-          ========================================================================= */}
-      {viewMode === 'grid' && selectedDayInfo && (
-        <div className="bg-white border border-[#dee2e6] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4 animate-in fade-in">
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#e9ecef]">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#1b4332] text-white flex items-center justify-center font-black text-sm shadow-xs">
-                {selectedDayInfo.day}
-              </div>
-              <div>
-                <h3 className="text-base font-extrabold text-[#212529]">
-                  {selectedDayInfo.day} {monthNames[month]} {year}
-                </h3>
-                <p className="text-xs text-[#6c757d] font-medium">
-                  {selectedDayInfo.dateStr} &bull; {new Date(year, month, selectedDayInfo.day).toLocaleDateString('en-US', { weekday: 'long' })}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {selectedDayInfo.holiday && (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#1b4332] text-white border border-[#081c15] flex items-center gap-1.5 shadow-2xs">
-                  <Star className="w-3.5 h-3.5 fill-[#95d5b2] text-[#95d5b2]" />
-                  <span>Holiday: {selectedDayInfo.holiday}</span>
-                </span>
-              )}
-
-              {Array.isArray((selectedDayInfo as any).events) && (selectedDayInfo as any).events.map((ev: any) => (
-                <span
-                  key={ev.id}
-                  className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${
-                    ev.category === 'Birthday'
-                      ? 'bg-pink-50 text-pink-700 border-pink-200'
-                      : ev.category === 'Anniversary'
-                        ? 'bg-purple-50 text-purple-700 border-purple-200'
-                        : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{ev.category}: {ev.title}</span>
-                </span>
-              ))}
-
-              {selectedDayInfo.isWeekend && !selectedDayInfo.holiday && (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#e9ecef] text-[#495057] border border-[#ced4da] shadow-2xs flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#6c757d]" />
-                  <span>Weekend Off</span>
-                </span>
-              )}
-
-              {selectedDayInfo.attendance && !selectedDayInfo.holiday && !selectedDayInfo.isWeekend && (
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${selectedDayInfo.attendance.status === 'Present'
-                    ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
-                    : selectedDayInfo.attendance.status === 'Late'
-                      ? 'bg-[#e9ecef] text-[#343a40] border-[#adb5bd]'
-                      : 'bg-rose-50 text-rose-700 border-rose-200'
-                    }`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-[#2d6a4f]" />
-                  <span>Attendance: {selectedDayInfo.attendance.status}</span>
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* 4 Detail Metrics Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 text-xs">
-            {/* Shift Timing */}
-            <div className="p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dee2e6]">
-              <span className="text-[10px] uppercase font-bold text-[#6c757d] block tracking-wider">Shift Schedule</span>
-              <span className="font-extrabold text-[#212529] text-sm mt-1 block">
-                {selectedDayInfo.holiday || selectedDayInfo.isWeekend
-                  ? 'Off Duty'
-                  : `${scheduleConfig.shiftStartTime || '09:00 AM'} – ${scheduleConfig.shiftEndTime || '06:00 PM'}`}
-              </span>
-              <span className="text-[11px] text-[#6c757d] mt-0.5 block">
-                {selectedDayInfo.holiday
-                  ? 'Corporate Public Holiday'
-                  : selectedDayInfo.isWeekend
-                    ? 'Official Weekend Weekly Rest'
-                    : 'Standard Corporate Shift'}
-              </span>
-            </div>
-
-            {/* Punch In & Punch Out */}
-            <div className="p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dee2e6]">
-              <span className="text-[10px] uppercase font-bold text-[#6c757d] block tracking-wider">Attendance Punch</span>
-              <span className="font-extrabold text-[#212529] text-sm mt-1 block">
-                {selectedDayInfo.attendance?.checkIn || '--'} &rarr; {selectedDayInfo.attendance?.checkOut || '--'}
-              </span>
-              <span className="text-[11px] text-[#6c757d] mt-0.5 block">
-                {selectedDayInfo.attendance?.workingHours
-                  ? `${selectedDayInfo.attendance.workingHours} Hours logged`
-                  : 'No attendance punch logged'}
-              </span>
-            </div>
-
-            {/* Day Classification */}
-            <div className="p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dee2e6]">
-              <span className="text-[10px] uppercase font-bold text-[#6c757d] block tracking-wider">Classification</span>
-              <span className="font-extrabold text-[#212529] text-sm mt-1 block">
-                {selectedDayInfo.holiday ? selectedDayInfo.holiday : selectedDayInfo.isWeekend ? 'Weekend Off' : 'Regular Work Day'}
-              </span>
-              <span className="text-[11px] text-[#6c757d] mt-0.5 block">
-                {selectedDayInfo.holidayObj?.description ||
-                  (selectedDayInfo.isWeekend
-                    ? `${new Date(year, month, selectedDayInfo.day).toLocaleDateString('en-US', { weekday: 'long' })} corporate weekend off`
-                    : 'Scheduled operational business day')}
-              </span>
-            </div>
-
-            {/* Work Mode */}
-            <div className="p-3.5 rounded-xl bg-[#f8f9fa] border border-[#dee2e6]">
-              <span className="text-[10px] uppercase font-bold text-[#6c757d] block tracking-wider">Location / Presence</span>
-              <span className="font-extrabold text-[#212529] text-sm mt-1 block">
-                Corporate Office Desk
-              </span>
-              <span className="text-[11px] text-[#6c757d] mt-0.5 block">
-                Attendance &amp; presence verified
-              </span>
-            </div>
-          </div>
-
-          {/* Employees On Leave in Selected Day */}
-          <div className="p-4 rounded-xl bg-[#f8f9fa] border border-[#dee2e6] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#212529] flex items-center gap-2">
-                <CalendarOff className="w-4 h-4 text-[#2d6a4f]" />
-                <span>Employees on Leave ({selectedDayInfo.leaves?.length || 0})</span>
-              </span>
-              {selectedDayInfo.leaves && selectedDayInfo.leaves.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                  {selectedDayInfo.leaves.length} on leave
-                </span>
-              )}
-            </div>
-
-            {selectedDayInfo.leaves && selectedDayInfo.leaves.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1">
-                {selectedDayInfo.leaves.map((lv: LeaveRequest, lIdx: number) => {
-                  const empName = resolveLeaveEmployeeName(lv);
-                  const deptName = resolveLeaveDepartment(lv);
-                  const isApproved = lv.status === 'Approved';
-                  const isOwn = isOwnLeave(lv);
-
-                  return (
-                    <div
-                      key={lv.id || lIdx}
-                      className="p-2.5 rounded-xl bg-white border border-[#dee2e6] hover:border-[#95d5b2] transition-all flex items-center justify-between gap-2 shadow-2xs"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-7 h-7 rounded-full bg-[#1b4332] text-white text-xs font-bold flex items-center justify-center shrink-0">
-                          {empName.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0 leading-tight">
-                          <p className="text-xs font-bold text-[#212529] truncate flex items-center gap-1">
-                            <span>{empName}</span>
-                            {isOwn && <span className="text-[10px] font-semibold text-[#2d6a4f]">(You)</span>}
-                          </p>
-                          <p className="text-[10px] text-[#6c757d] truncate">
-                            {deptName} &bull; <span className="font-medium text-[#495057]">{lv.leaveType}</span>
-                            {lv.isHalfDay && ' (Half Day)'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 border ${
-                          isApproved
-                            ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
-                        }`}
-                      >
-                        {lv.status}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 py-2 text-xs text-[#6c757d]">
-                <CheckCircle2 className="w-4 h-4 text-[#2d6a4f]" />
-                <span>No employees on leave on this date.</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          VIEW MODE 2: AGENDA / SCHEDULE CHRONOLOGICAL LIST
-          ========================================================================= */}
-      {viewMode === 'agenda' && (
-        <div className="bg-white border border-[#dee2e6] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#e9ecef]">
-            <div>
-              <h3 className="text-base font-extrabold text-[#212529]">
-                Monthly Schedule &amp; Event Timeline ({agendaEvents.length})
-              </h3>
-              <p className="text-xs text-[#6c757d]">
-                Chronological list of official corporate holidays and weekend schedule for {monthNames[month]} {year}.
-              </p>
-            </div>
-          </div>
-
-          {agendaEvents.length === 0 ? (
-            <div className="text-center py-12 text-[#6c757d]">
-              <CalendarDays className="w-12 h-12 mx-auto text-[#ced4da] mb-2" />
-              <p className="text-sm font-semibold">No holidays or weekend events for this month.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {agendaEvents.map((evt) => (
-                <div
-                  key={evt.dateStr}
-                  onClick={() => setSelectedDay(evt.day)}
-                  className="p-4 rounded-xl border border-[#dee2e6] bg-[#f8f9fa] hover:border-[#95d5b2] hover:bg-[#d8f3dc]/25 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div
-                      className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 ${evt.holiday
-                        ? 'bg-[#1b4332] text-white'
-                        : evt.isWeekend
-                          ? 'bg-[#e9ecef] text-[#343a40] border border-[#ced4da]'
-                          : 'bg-[#2d6a4f] text-white'
-                        }`}
-                    >
-                      <span className="text-[10px] font-semibold uppercase leading-none">{monthNames[month].slice(0, 3)}</span>
-                      <span className="text-base font-semibold leading-none mt-0.5">{evt.day}</span>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-bold text-[#212529] flex items-center gap-1.5">
-                        {evt.holiday ? (
-                          <><Star className="w-3.5 h-3.5 text-[#2d6a4f] fill-[#2d6a4f] shrink-0" /><span>{evt.holiday}</span></>
-                        ) : evt.isWeekend ? (
-                          <><CalendarDays className="w-3.5 h-3.5 text-[#6c757d] shrink-0" /><span>Weekend ({new Date(year, month, evt.day).toLocaleDateString('en-US', { weekday: 'long' })})</span></>
-                        ) : (
-                          <><Briefcase className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" /><span>Work Shift: {evt.attendance?.status || 'Scheduled'}</span></>
-                        )}
-                      </h4>
-                      <p className="text-xs text-[#6c757d] mt-0.5">
-                        {evt.dateStr} &bull; {new Date(year, month, evt.day).toLocaleDateString('en-US', { weekday: 'long' })}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {evt.holiday && (
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#1b4332] text-white">
-                        Official Holiday
-                      </span>
-                    )}
-                    {evt.isWeekend && !evt.holiday && (
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-white text-[#495057] border border-[#ced4da]">
-                        Weekend Off
-                      </span>
-                    )}
-                    {evt.attendance && !evt.holiday && !evt.isWeekend && (
-                      <div className="text-xs text-[#495057] bg-white border border-[#dee2e6] px-3 py-1.5 rounded-xl font-medium">
-                        Punch: <span className="font-bold text-[#1b4332]">{evt.attendance.checkIn} &rarr; {evt.attendance.checkOut || 'Active'}</span> ({evt.attendance.workingHours}h)
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* =========================================================================
-          VIEW MODE 3: CORPORATE HOLIDAYS DIRECTORY
-          ========================================================================= */}
-      {viewMode === 'holidays' && (
-        <div className="bg-white border border-[#dee2e6] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#e9ecef]">
-            <div>
-              <h3 className="text-base font-extrabold text-[#212529] flex items-center gap-2">
-                <Star className="w-5 h-5 text-[#2d6a4f] fill-[#2d6a4f]" />
-                <span>Official Corporate Holidays Roster ({filteredHolidays.length})</span>
-              </h3>
-              <p className="text-xs text-[#6c757d] mt-0.5">
-                Gazetted and floating company holidays recognized across all branches.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <Search className="w-4 h-4 text-[#6c757d] absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Search holiday..."
-                  value={holidaySearchQuery}
-                  onChange={(e) => setHolidaySearchQuery(e.target.value)}
-                  className="pl-9 pr-3.5 py-1.5 rounded-xl border border-[#dee2e6] text-xs bg-[#f8f9fa] text-[#212529] placeholder:text-[#6c757d] focus:bg-white focus:border-[#2d6a4f] focus:outline-hidden"
-                />
-              </div>
-
-              {portalMode !== 'employee' && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleOpenWeekendModal}
-                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#f8f9fa] border border-[#dee2e6] text-[#212529] hover:text-[#1b4332] text-xs font-semibold shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
-                    title="Configure Corporate Weekend Policy"
-                  >
-                    <CalendarDays className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                    <span>Weekend Rules</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddHolidayOpen(true)}
-                    className="px-3.5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Holiday</span>
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
-            {filteredHolidays.map((h) => {
-              let mName = '';
-              let dNum: number | string = '';
-              if (h.date) {
-                const parts = h.date.split('-');
-                if (parts.length === 3) {
-                  const hDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-                  mName = hDate.toLocaleDateString('en-US', { month: 'short' });
-                  dNum = hDate.getDate();
-                }
-              }
-
-              const holidayId = String(h.id || (h as any)._id || (h as any).holidayId || '').trim();
-
-              return (
-                <div
-                  key={holidayId || `${h.name}-${h.date}`}
-                  className="p-4 rounded-xl bg-white border border-[#dee2e6] hover:border-[#74c69d] hover:shadow-xs transition-all flex items-start justify-between gap-3"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#d8f3dc] border border-[#95d5b2] text-[#1b4332] flex flex-col items-center justify-center shrink-0">
-                      <span className="text-[10px] font-semibold uppercase text-[#2d6a4f] leading-none">{mName || 'DAY'}</span>
-                      <span className="text-base font-semibold leading-none mt-0.5">{dNum || '--'}</span>
-                    </div>
-
-                    <div>
-                      <h4 className="font-extrabold text-sm text-[#212529] leading-snug">{h.name}</h4>
-                      <p className="text-xs text-[#6c757d] mt-0.5 font-medium">
-                        {h.date} &bull; {h.dayOfWeek || 'Weekday'}
-                      </p>
-                      <span className="inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2]">
-                        {h.type || 'Public'} Holiday
-                      </span>
-                      {h.description && (
-                        <p className="text-[11px] text-[#6c757d] mt-1 leading-relaxed">
-                          {h.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {portalMode !== 'employee' && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletingHoliday({ id: holidayId, name: h.name });
-                      }}
-                      className="p-1.5 rounded-xl text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                      title="Delete Holiday"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          VIEW MODE 4: EVENTS & BIRTHDAYS DIRECTORY
-          ========================================================================= */}
-      {viewMode === 'events' && (
-        <div className="bg-white border border-[#dee2e6] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#e9ecef]">
-            <div>
-              <h3 className="text-base font-extrabold text-[#212529]">Events &amp; Birthdays ({year})</h3>
-              <p className="text-xs text-[#6c757d]">Employee birthdays are automatically synced from employee profiles, alongside company anniversaries and events.</p>
-            </div>
-            {portalMode !== 'employee' && (
+        {/* Quick Actions */}
+        <div className="flex items-center gap-2">
+          {portalMode !== 'employee' && (
+            <>
               <button
                 type="button"
-                onClick={() => setIsAddEventOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition cursor-pointer shadow-xs"
+                onClick={handleOpenWeekendModal}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#f8f9fa] border border-[#ced4da] text-[#212529] hover:text-[#1b4332] text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                title="Configure Corporate Weekend Policy"
+              >
+                <CalendarDays className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                <span>Weekend Rules</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddHolidayOpen(true)}
+                className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Event</span>
+                <span>Add Holiday</span>
               </button>
-            )}
-          </div>
-
-          {eventsList.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-400">
-              No events or birthdays found for {year}. Add employee Date of Birth or create a new event.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {eventsList.map((ev) => (
-                <div
-                  key={ev.id}
-                  className="p-4 rounded-2xl border border-[#dee2e6] bg-[#f8f9fa]/60 flex items-start justify-between gap-3"
-                >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        ev.category === 'Birthday'
-                          ? 'bg-pink-100 text-pink-700'
-                          : ev.category === 'Anniversary'
-                            ? 'bg-purple-100 text-purple-700'
-                            : 'bg-indigo-100 text-indigo-700'
-                      }`}
-                    >
-                      <Sparkles className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-bold text-slate-900 truncate">{ev.title}</span>
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
-                          {ev.category}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-0.5">{ev.date}</p>
-                      {ev.description && <p className="text-xs text-slate-600 mt-1">{ev.description}</p>}
-                    </div>
-                  </div>
-                  {portalMode !== 'employee' && ev.source === 'custom' && (
-                    <button
-                      type="button"
-                      onClick={() => void handleDeleteEvent(ev.id)}
-                      className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                      title="Delete Event"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
+            </>
           )}
         </div>
-      )}
+      </div>
+    </div>
 
-      {/* =========================================================================
-          MODAL: ADD EVENT
-          ========================================================================= */}
-      {mounted && isAddEventOpen && typeof document !== 'undefined' && createPortal(
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsAddEventOpen(false);
-          }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/45 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+      {/* Main 2-Column Layout */ }
+  <div className="flex flex-col lg:flex-row gap-5 items-start">
+    {/* LEFT COLUMN: Compact Mini Month Calendar */}
+    <div className="w-full lg:w-[320px] shrink-0 rounded-2xl bg-[#f8f9fa] border border-[#e9ecef] p-5">
+      <div className="flex items-center justify-between mb-4">
+        <button
+          type="button"
+          onClick={handlePrevMonth}
+          aria-label="Previous Month"
+          className="w-8 h-8 rounded-lg hover:bg-white border border-transparent hover:border-[#dee2e6] flex items-center justify-center text-[#495057] transition cursor-pointer"
         >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <h2 className="text-[15px] font-bold text-[#212529] tracking-tight">
+          {monthNames[month]} {year}
+        </h2>
+        <button
+          type="button"
+          onClick={handleNextMonth}
+          aria-label="Next Month"
+          className="w-8 h-8 rounded-lg hover:bg-white border border-transparent hover:border-[#dee2e6] flex items-center justify-center text-[#495057] transition cursor-pointer"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((wd) => (
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 my-auto"
+            key={wd}
+            className="text-center text-[11px] font-medium text-[#6c757d] py-1.5"
           >
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Add Calendar Event</h3>
-                  <p className="text-xs text-slate-500">Anniversary, celebration, or company event</p>
+            {wd}
+          </div>
+        ))}
+      </div>
+
+      <div
+        className="grid grid-cols-7 gap-1"
+        onMouseLeave={() => setHoveredDay(null)}
+      >
+        {miniCalendarDays.map((item, idx) => {
+          const isSelected = item.isCurrentMonth && item.day === selectedDay;
+          const isHovered = item.isCurrentMonth && item.day === hoveredDay && !isSelected;
+          const isToday =
+            item.isCurrentMonth &&
+            item.day === todayDateNum &&
+            month === todayMonth &&
+            year === todayYear;
+          const hasHoliday = Boolean(item.holiday);
+          const hasLeave = Array.isArray(item.leaves) && item.leaves.length > 0;
+          const hasAttendance = Boolean(item.attendance) || (item.staffCount ?? 0) > 0;
+
+          return (
+            <button
+              key={`${item.dateStr}-${idx}`}
+              type="button"
+              onClick={() => {
+                if (!item.isCurrentMonth) return;
+                setSelectedDay(item.day);
+                setListScope('day');
+              }}
+              onMouseEnter={() => {
+                if (!item.isCurrentMonth) return;
+                setHoveredDay(item.day);
+              }}
+              onMouseLeave={handleCellMouseLeave}
+              className={`min-h-[78px] sm:min-h-[116px] p-1.5 sm:p-2.5 rounded-xl border transition-all duration-150 flex flex-col justify-between group ${item.beforeJoining ? 'cursor-not-allowed' : 'cursor-pointer'} ${cellStyle}`}
+            >
+              {/* Day Number Header */}
+              <div className="flex items-center justify-between gap-1">
+                <span
+                  className={`text-xs font-extrabold w-7 h-7 flex items-center justify-center rounded-full transition-all ${isToday
+                    ? 'bg-[#2d6a4f] text-white shadow-xs'
+                    : isSelected
+                      ? 'bg-[#1b4332] text-white shadow-xs'
+                      : !item.isCurrentMonth
+                        ? 'text-[#adb5bd]'
+                        : item.isWeekend
+                          ? 'text-[#495057] group-hover:text-[#1b4332]'
+                          : 'text-[#212529] group-hover:bg-[#d8f3dc] group-hover:text-[#1b4332]'
+                    }`}
+                >
+                  {item.day}
+                </span>
+
+                <div className="flex items-center gap-1">
+                  {isToday && (
+                    <span className="hidden sm:inline-block px-1.5 py-0.5 rounded-full bg-[#1b4332] text-white text-[9px] font-bold uppercase tracking-wide">
+                      Today
+                    </span>
+                  )}
+                  {item.holiday && (
+                    <span className="p-1 rounded-full bg-[#1b4332] text-[#95d5b2]" title={item.holiday}>
+                      <Star className="w-3 h-3 fill-[#95d5b2] text-[#95d5b2]" />
+                    </span>
+                  )}
                 </div>
               </div>
+
+              {/* Day Badges and Event Tags: ONLY official holidays and weekends */}
+              <div className="space-y-1 mt-1 text-[10px]">
+                {item.beforeJoining && (
+                  <div className="truncate px-2 py-0.5 rounded-md bg-slate-200 text-slate-500 font-semibold border border-slate-300" title="This day is before the employee joined">
+                    Not joined
+                  </div>
+                )}
+                {item.holiday && !item.beforeJoining && (
+                  <div
+                    className="truncate px-2 py-0.5 rounded-md bg-[#1b4332] text-white font-semibold border border-[#081c15] shadow-2xs flex items-center gap-1"
+                    title={`Holiday: ${item.holiday}`}
+                  >
+                    <Star className="w-2.5 h-2.5 fill-[#95d5b2] text-[#95d5b2] shrink-0" />
+                    <span className="truncate">{item.holiday}</span>
+                  </div>
+                )}
+
+                {/* Weekend Tag */}
+                {item.isWeekend && !item.holiday && !item.beforeJoining && item.isCurrentMonth && (
+                  <div
+                    className="truncate px-2 py-0.5 rounded-md bg-white text-[#495057] font-semibold border border-[#ced4da] flex items-center gap-1.5"
+                    title="Weekend"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#6c757d] shrink-0" />
+                    <span className="truncate">Weekend</span>
+                  </div>
+                )}
+
+                {isAdminCalendar && (item.staffCount ?? 0) > 0 && !item.holiday && !item.isWeekend && (
+                  <div className="truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]">
+                    <Users className="w-2.5 h-2.5 shrink-0 text-[#2d6a4f]" />
+                    <span className="truncate">{item.staffCount} staff</span>
+                  </div>
+                )}
+
+                {/* Attendance Record Status (Regular Working Days Only) */}
+                {!isAdminCalendar && item.attendance && !item.beforeJoining && !item.holiday && !item.isWeekend && (
+                  <div
+                    className={`truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 ${item.attendance.status === 'Present'
+                      ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
+                      : item.attendance.status === 'Late'
+                        ? 'bg-[#f8f9fa] text-[#343a40] border-[#adb5bd]'
+                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}
+                    title={`${item.attendance.status} • ${item.attendance.checkIn || '--'} to ${item.attendance.checkOut || '--'}`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.attendance.status === 'Present'
+                        ? 'bg-[#2d6a4f]'
+                        : item.attendance.status === 'Late'
+                          ? 'bg-[#6c757d]'
+                          : 'bg-rose-500'
+                        }`}
+                    />
+                    <span className="truncate">{item.attendance.status}</span>
+                  </div>
+                )}
+
+                {/* Employees on Leave Badge */}
+                {item.isCurrentMonth && !item.beforeJoining && item.leaves && item.leaves.length > 0 && (
+                  <div
+                    className="truncate px-2 py-0.5 rounded-md font-semibold border flex items-center gap-1 bg-amber-50 text-amber-900 border-amber-200 shadow-2xs"
+                    title={`${item.leaves.length} employee(s) on leave`}
+                  >
+                    <CalendarOff className="w-2.5 h-2.5 shrink-0 text-amber-700" />
+                    <span className="truncate">{item.leaves.length} on leave</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+      )}
+
+    {/* =========================================================================
+          SELECTED DAY INSPECTOR / DETAILS CARD
+          ========================================================================= */}
+    {viewMode === 'grid' && selectedDayInfo && (
+      <div className="bg-white border border-[#dee2e6] rounded-2xl p-5 sm:p-6 shadow-xs space-y-4 animate-in fade-in">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#e9ecef]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#1b4332] text-white flex items-center justify-center font-black text-sm shadow-xs">
+              {selectedDayInfo.day}
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-[#212529]">
+                {selectedDayInfo.day} {monthNames[month]} {year}
+              </h3>
+              <p className="text-xs text-[#6c757d] font-medium">
+                {selectedDayInfo.dateStr} &bull; {new Date(year, month, selectedDayInfo.day).toLocaleDateString('en-US', { weekday: 'long' })}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedDayInfo.holiday && (
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#1b4332] text-white border border-[#081c15] flex items-center gap-1.5 shadow-2xs">
+                <Star className="w-3.5 h-3.5 fill-[#95d5b2] text-[#95d5b2]" />
+                <span>Holiday: {selectedDayInfo.holiday}</span>
+              </span>
+            )}
+
+            {selectedDayInfo.isWeekend && !selectedDayInfo.holiday && (
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#e9ecef] text-[#495057] border border-[#ced4da] shadow-2xs flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#6c757d]" />
+                <span>Weekend Off</span>
+              </span>
+            )}
+
+            {selectedDayInfo.attendance && !selectedDayInfo.holiday && !selectedDayInfo.isWeekend && (
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${selectedDayInfo.attendance.status === 'Present'
+                  ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
+                  : selectedDayInfo.attendance.status === 'Late'
+                    ? 'bg-[#e9ecef] text-[#343a40] border-[#adb5bd]'
+                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                  }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-[#2d6a4f]" />
+                <span>Attendance: {selectedDayInfo.attendance.status}</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Upcoming Events & Holidays */}
+        <div className="flex-1 min-w-0 w-full rounded-2xl bg-white border border-[#dee2e6] p-5 sm:p-6 shadow-2xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-[#212529] tracking-tight">
+                {effectiveListScope === 'day' && activeDay
+                  ? `Schedule · ${activeDay} ${monthNames[month]} ${year}`
+                  : 'Upcoming events & holidays'}
+              </h3>
+            </div>
+
+            <div className="inline-flex items-center rounded-xl bg-[#f8f9fa] border border-[#dee2e6] p-0.5">
               <button
                 type="button"
-                onClick={() => setIsAddEventOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 cursor-pointer"
+                onClick={() => setListScope('month')}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${listScope === 'month'
+                    ? 'bg-[#2d6a4f] text-white shadow-2xs'
+                    : 'text-[#6c757d] hover:text-[#212529]'
+                  }`}
               >
-                <X className="w-4 h-4" />
+                {monthNames[month].slice(0, 3)}
+              </button>
+              <button
+                type="button"
+                onClick={() => setListScope('day')}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${listScope === 'day'
+                    ? 'bg-[#2d6a4f] text-white shadow-2xs'
+                    : 'text-[#6c757d] hover:text-[#212529]'
+                  }`}
+              >
+                Selected Day
               </button>
             </div>
-            <form onSubmit={handleCreateEvent} className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Event Title</label>
-                <input
-                  type="text"
-                  value={eventTitle}
-                  onChange={(e) => setEventTitle(e.target.value)}
-                  placeholder="e.g. Company 5th Anniversary"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Date</label>
-                  <input
-                    type="date"
-                    value={eventDate}
-                    onChange={(e) => setEventDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
-                  <select
-                    value={eventCategory}
-                    onChange={(e) => setEventCategory(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 bg-white"
-                  >
-                    <option value="Anniversary">Anniversary</option>
-                    <option value="Celebration">Celebration</option>
-                    <option value="Meeting">Meeting</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Description (Optional)</label>
-                <textarea
-                  value={eventDescription}
-                  onChange={(e) => setEventDescription(e.target.value)}
-                  rows={2}
-                  placeholder="Event details..."
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsAddEventOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer"
-                >
-                  Save Event
-                </button>
-              </div>
-            </form>
           </div>
-        </div>,
-        document.body
-      )}
 
-      {/* =========================================================================
+          {feedItems.length > 0 ? (
+            <div className="space-y-3">
+              {feedItems.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="rounded-xl border border-[#dee2e6] bg-white p-4 hover:border-[#95d5b2] transition-all"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${ev.dotColor}`} />
+                      <h4 className="text-[15px] font-semibold text-[#212529] truncate">
+                        {ev.title}
+                      </h4>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${ev.badgeTone}`}
+                      >
+                        {ev.badge}
+                      </span>
+                      {isAdminCalendar && ev.kind === 'holiday' && ev.holidayId && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDeletingHoliday({
+                              id: ev.holidayId!,
+                              name: ev.holidayName || ev.title,
+                            })
+                          }
+                          className="p-1 rounded-lg text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                          title="Delete Holiday"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
+                    {filteredHolidays.map((h) => {
+                      let mName = '';
+                      let dNum: number | string = '';
+                      if (h.date) {
+                        const parts = h.date.split('-');
+                        if (parts.length === 3) {
+                          const hDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+                          mName = hDate.toLocaleDateString('en-US', { month: 'short' });
+                          dNum = hDate.getDate();
+                        }
+                      }
+
+                      const holidayId = String(h.id || (h as any)._id || (h as any).holidayId || '').trim();
+
+                      return (
+                        <div
+                          key={holidayId || `${h.name}-${h.date}`}
+                          className="p-4 rounded-xl bg-white border border-[#dee2e6] hover:border-[#74c69d] hover:shadow-xs transition-all flex items-start justify-between gap-3"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-[#d8f3dc] border border-[#95d5b2] text-[#1b4332] flex flex-col items-center justify-center shrink-0">
+                              <span className="text-[10px] font-semibold uppercase text-[#2d6a4f] leading-none">{mName || 'DAY'}</span>
+                              <span className="text-base font-semibold leading-none mt-0.5">{dNum || '--'}</span>
+                            </div>
+
+                            <div>
+                              <h4 className="font-extrabold text-sm text-[#212529] leading-snug">{h.name}</h4>
+                              <p className="text-xs text-[#6c757d] mt-0.5 font-medium">
+                                {h.date} &bull; {h.dayOfWeek || 'Weekday'}
+                              </p>
+                              <span className="inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#d8f3dc] text-[#1b4332] border border-[#95d5b2]">
+                                {h.type || 'Public'} Holiday
+                              </span>
+                              {h.description && (
+                                <p className="text-[11px] text-[#6c757d] mt-1 leading-relaxed">
+                                  {h.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {portalMode !== 'employee' && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingHoliday({ id: holidayId, name: h.name });
+                              }}
+                              className="p-1.5 rounded-xl text-[#6c757d] hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                              title="Delete Holiday"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* =========================================================================
           MODAL: ADD HOLIDAY
           ========================================================================= */}
-      {mounted && isAddHolidayOpen && typeof document !== 'undefined' && createPortal(
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsAddHolidayOpen(false);
-          }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/45 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[90vh] flex flex-col"
-          >
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                  <Star className="w-5 h-5 text-indigo-600 fill-indigo-100" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
-                    Add Company Holiday
-                  </h3>
-                  <p className="text-xs text-slate-500 truncate mt-0.5">
-                    Corporate schedule roster synchronization
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddHolidayOpen(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateHoliday} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Holiday Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Diwali / Deepawali Festival"
-                  value={holidayName}
-                  onChange={(e) => setHolidayName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Calendar Date *</label>
-                  <input
-                    type="date"
-                    required
-                    value={holidayDate}
-                    onChange={(e) => setHolidayDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Classification</label>
-                  <select
-                    value={holidayType}
-                    onChange={(e) => setHolidayType(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
+              {mounted && isAddHolidayOpen && typeof document !== 'undefined' && createPortal(
+                <div
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget) setIsAddHolidayOpen(false);
+                  }}
+                  className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/15 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+                >
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full shadow-2xl border border-slate-200/80 animate-in fade-in zoom-in-95 my-auto flex flex-col"
                   >
-                    <option value="Public">Public / Gazetted</option>
-                    <option value="Optional">Optional / Floating</option>
-                    <option value="Company">Company Special</option>
-                  </select>
-                </div>
-              </div>
+                    {/* Modal Header */}
+                    <div className="p-4 sm:p-5 border-b border-slate-100 bg-white rounded-t-2xl sm:rounded-t-3xl flex items-center justify-between shrink-0">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-[#d8f3dc] text-[#1b4332] flex items-center justify-center shrink-0">
+                          <Star className="w-5 h-5 text-[#2d6a4f] fill-[#b7e4c7]" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                            Add Company Holiday
+                          </h3>
+                          <p className="text-xs text-slate-500 truncate mt-0.5">
+                            Corporate schedule roster synchronization
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddHolidayOpen(false)}
+                        className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Description / Remarks</label>
-                <input
-                  type="text"
-                  placeholder="e.g., Annual Festival of Lights Celebration"
-                  value={holidayDescription}
-                  onChange={(e) => setHolidayDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800 font-medium transition-all"
-                />
-              </div>
+                    <form onSubmit={handleCreateHoliday} className="p-4 sm:p-6 space-y-4 text-xs">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Holiday Name *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g., Diwali / Deepawali Festival"
+                          value={holidayName}
+                          onChange={(e) => setHolidayName(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] text-slate-800 font-medium transition-all"
+                        />
+                      </div>
 
-              <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsAddHolidayOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition cursor-pointer"
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="holiday-date-picker" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                            Calendar Date *
+                          </label>
+                          <ThemedDatePicker
+                            id="holiday-date-picker"
+                            value={holidayDate}
+                            onChange={setHolidayDate}
+                          />
+                        </div>
+                        <div
+                          onMouseEnter={() => setHolidayTypeDropdownOpen(true)}
+                          onMouseLeave={() => setHolidayTypeDropdownOpen(false)}
+                          className="relative"
+                        >
+                          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Classification</label>
+                          <button
+                            type="button"
+                            onClick={() => setHolidayTypeDropdownOpen((prev) => !prev)}
+                            aria-haspopup="listbox"
+                            aria-expanded={holidayTypeDropdownOpen}
+                            className={`w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border bg-white text-left flex items-center justify-between gap-2 transition-all duration-150 cursor-pointer ${holidayTypeDropdownOpen
+                                ? 'border-[#2d6a4f] ring-2 ring-[#2d6a4f]/20 text-slate-900 shadow-xs'
+                                : 'border-slate-300 text-slate-800 hover:border-[#2d6a4f]/60'
+                              }`}
+                          >
+                            <span className="truncate font-medium">
+                              {holidayType === 'Optional'
+                                ? 'Optional / Floating'
+                                : holidayType === 'Company'
+                                  ? 'Company Special'
+                                  : 'Public / Gazetted'}
+                            </span>
+                            <ChevronDown
+                              className={`w-4 h-4 text-slate-500 shrink-0 transition-transform duration-200 ${holidayTypeDropdownOpen ? 'rotate-180 text-[#2d6a4f]' : ''
+                                }`}
+                            />
+                          </button>
+
+                          {holidayTypeDropdownOpen && (
+                            <div className="absolute left-0 right-0 pt-1.5 z-[60]">
+                              <div
+                                role="listbox"
+                                className="rounded-2xl border border-[#dee2e6] bg-white shadow-[0_18px_40px_-12px_rgba(15,23,42,0.18)] p-1.5 divide-y divide-slate-100/80 animate-in fade-in slide-in-from-top-1 duration-150"
+                              >
+                                {[
+                                  { value: 'Public', label: 'Public / Gazetted' },
+                                  { value: 'Optional', label: 'Optional / Floating' },
+                                  { value: 'Company', label: 'Company Special' },
+                                ].map((opt) => {
+                                  const selected = holidayType === opt.value;
+                                  return (
+                                    <button
+                                      key={opt.value}
+                                      type="button"
+                                      onClick={() => {
+                                        setHolidayType(opt.value as any);
+                                        setHolidayTypeDropdownOpen(false);
+                                      }}
+                                      className={`w-full px-3 py-2 rounded-xl text-left text-xs font-medium flex items-center justify-between gap-2 transition cursor-pointer ${selected
+                                          ? 'bg-[#d8f3dc] text-[#1b4332] font-semibold'
+                                          : 'text-slate-700 hover:bg-[#f8f9fa] hover:text-[#1b4332]'
+                                        }`}
+                                    >
+                                      <span>{opt.label}</span>
+                                      {selected && <Check className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Description / Remarks</label>
+                        <input
+                          type="text"
+                          placeholder="e.g., Annual Festival of Lights Celebration"
+                          value={holidayDescription}
+                          onChange={(e) => setHolidayDescription(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#2d6a4f]/20 focus:border-[#2d6a4f] text-slate-800 font-medium transition-all"
+                        />
+                      </div>
+
+                      <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddHolidayOpen(false)}
+                          className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs transition cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
+                        >
+                          Add Holiday
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>,
+                document.body
+              )}
+
+              {/* Modern In-App Remove Holiday Confirmation Modal */}
+              {mounted && deletingHoliday && typeof document !== 'undefined' && createPortal(
+                <div
+                  id="delete-holiday-modal"
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget && !isDeletingHoliday) setDeletingHoliday(null);
+                  }}
+                  className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/15 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition active:scale-95 cursor-pointer"
-                >
-                  Add Holiday
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
+                  <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl border border-slate-200/80 space-y-4 my-auto animate-in zoom-in-95 duration-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                        <Trash2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">Remove Holiday?</h3>
+                        <p className="text-xs text-slate-500">Official calendar modification</p>
+                      </div>
+                    </div>
 
-      {/* Modern In-App Remove Holiday Confirmation Modal */}
-      {mounted && deletingHoliday && typeof document !== 'undefined' && createPortal(
-        <div
-          id="delete-holiday-modal"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !isDeletingHoliday) setDeletingHoliday(null);
-          }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/45 backdrop-blur-md p-3 sm:p-4 animate-in fade-in duration-200"
-        >
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl sm:rounded-3xl max-w-sm w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl border border-slate-200/80 space-y-4 my-auto animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Remove Holiday?</h3>
-                <p className="text-xs text-slate-500">Official calendar modification</p>
-              </div>
-            </div>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Are you sure you want to remove <strong className="text-slate-900">{deletingHoliday.name}</strong> from the company calendar? This will delete the holiday from the backend.
+                    </p>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to remove <strong className="text-slate-900">{deletingHoliday.name}</strong> from the company calendar? This will delete the holiday from the backend.
-            </p>
+                    <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                      <button
+                        type="button"
+                        disabled={isDeletingHoliday}
+                        onClick={() => setDeletingHoliday(null)}
+                        className="px-4 py-2.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isDeletingHoliday}
+                        onClick={handleConfirmDeleteHoliday}
+                        className="px-5 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 active:scale-95"
+                      >
+                        {isDeletingHoliday ? 'Deleting...' : 'Confirm Remove'}
+                      </button>
+                    </div>
+                  </div>
+                </div>,
+                document.body
+              )}
 
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                disabled={isDeletingHoliday}
-                onClick={() => setDeletingHoliday(null)}
-                className="px-4 py-2.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isDeletingHoliday}
-                onClick={handleConfirmDeleteHoliday}
-                className="px-5 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 active:scale-95"
-              >
-                {isDeletingHoliday ? 'Deleting...' : 'Confirm Remove'}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* =========================================================================
+              {/* =========================================================================
           MODAL: CONFIGURE CORPORATE WEEKEND POLICY
           ========================================================================= */}
-      {mounted && isWeekendModalOpen && typeof document !== 'undefined' && createPortal(
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !isSavingWeekend) setIsWeekendModalOpen(false);
-          }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/45 backdrop-blur-md p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[90vh] flex flex-col"
-          >
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                  <CalendarDays className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
-                    Corporate Weekend Schedule
-                  </h3>
-                  <p className="text-xs text-slate-500 truncate mt-0.5">
-                    Configure official weekly off days for company calendar &amp; attendance
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={isSavingWeekend}
-                onClick={() => setIsWeekendModalOpen(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50 shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-              {/* Day selection */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2">
-                  Weekly Non-Working Days (Off Days)
-                </label>
-
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { day: 0, label: 'Sunday', short: 'Sun' },
-                    { day: 1, label: 'Monday', short: 'Mon' },
-                    { day: 2, label: 'Tuesday', short: 'Tue' },
-                    { day: 3, label: 'Wednesday', short: 'Wed' },
-                    { day: 4, label: 'Thursday', short: 'Thu' },
-                    { day: 5, label: 'Friday', short: 'Fri' },
-                    { day: 6, label: 'Saturday', short: 'Sat' },
-                  ].map((d) => {
-                    const isSelected = editingWeekendDays.includes(d.day);
-                    return (
-                      <button
-                        key={d.day}
-                        type="button"
-                        onClick={() => {
-                          if (isSelected) {
-                            setEditingWeekendDays(editingWeekendDays.filter((x) => x !== d.day));
-                            if (d.day === 6) setEditingSatRule('none');
-                          } else {
-                            const next = [...editingWeekendDays, d.day].sort();
-                            setEditingWeekendDays(next);
-                            if (d.day === 6 && editingSatRule === 'none') {
-                              setEditingSatRule('all');
-                            }
-                          }
-                        }}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                          isSelected
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                            : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                        }`}
-                      >
-                        {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
-                        <span>{d.label}</span>
-                        <span
-                          className={`text-[9px] uppercase px-1.5 py-0.5 rounded-md font-bold ${
-                            isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                          }`}
-                        >
-                          {isSelected ? 'Off' : 'Work'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Saturday Rule Selector (if Saturday is selected) */}
-              {editingWeekendDays.includes(6) && (
-                <div className="pt-3 border-t border-slate-100 space-y-2 animate-in fade-in">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Saturday Operational Schedule
-                  </label>
-                  <p className="text-[11px] text-slate-500">
-                    Choose whether all Saturdays are holidays or alternate Saturdays remain working days.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                    {[
-                      { id: 'all', title: 'All Saturdays Off', desc: 'Every Saturday is a full corporate weekend' },
-                      { id: 'alternate_2_4', title: '2nd & 4th Saturday Off', desc: '1st, 3rd & 5th Saturdays are working days' },
-                      { id: 'alternate_1_3', title: '1st & 3rd Saturday Off', desc: '2nd & 4th Saturdays are working days' },
-                    ].map((opt) => {
-                      const isAct = editingSatRule === opt.id;
-                      return (
-                        <div
-                          key={opt.id}
-                          onClick={() => setEditingSatRule(opt.id as any)}
-                          className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                            isAct
-                              ? 'border-indigo-600 bg-indigo-50/40 ring-1 ring-indigo-500 shadow-2xs'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-800">{opt.title}</span>
-                            <input
-                              type="radio"
-                              name="calendarSatRule"
-                              checked={isAct}
-                              onChange={() => { }}
-                              className="text-indigo-600 focus:ring-indigo-500"
-                            />
-                          </div>
-                          <p className="text-[11px] text-slate-500 mt-1 leading-snug">{opt.desc}</p>
+              {mounted && isWeekendModalOpen && typeof document !== 'undefined' && createPortal(
+                <div
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget && !isSavingWeekend) setIsWeekendModalOpen(false);
+                  }}
+                  className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/15 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+                >
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-white rounded-2xl sm:rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[90vh] flex flex-col"
+                  >
+                    {/* Modal Header */}
+                    <div className="px-5 py-4 sm:px-6 sm:py-5 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-[#d8f3dc] text-[#1b4332] flex items-center justify-center shrink-0">
+                          <CalendarDays className="w-5 h-5 text-[#2d6a4f]" />
                         </div>
-                      );
-                    })}
+                        <div className="min-w-0">
+                          <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                            Corporate Weekend Policy
+                          </h3>
+                          <p className="text-xs text-slate-500 truncate mt-0.5">
+                            Configure official weekly off days for calendar &amp; attendance
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isSavingWeekend}
+                        onClick={() => setIsWeekendModalOpen(false)}
+                        className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50 shrink-0"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {/* Modal Body */}
+                    <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+                      {/* Day selection */}
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2.5">
+                          <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                            Weekly Off Days
+                          </label>
+                          <span className="text-[11px] font-semibold text-[#1b4332] bg-[#d8f3dc]/70 px-2.5 py-0.5 rounded-full">
+                            {7 - editingWeekendDays.length} Working &bull; {editingWeekendDays.length} Off
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            { day: 1, label: 'Monday', short: 'Mon' },
+                            { day: 2, label: 'Tuesday', short: 'Tue' },
+                            { day: 3, label: 'Wednesday', short: 'Wed' },
+                            { day: 4, label: 'Thursday', short: 'Thu' },
+                            { day: 5, label: 'Friday', short: 'Fri' },
+                            { day: 6, label: 'Saturday', short: 'Sat' },
+                            { day: 0, label: 'Sunday', short: 'Sun' },
+                          ].map((d) => {
+                            const isSelected = editingWeekendDays.includes(d.day);
+                            return (
+                              <button
+                                key={d.day}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setEditingWeekendDays(editingWeekendDays.filter((x) => x !== d.day));
+                                    if (d.day === 6) setEditingSatRule('none');
+                                  } else {
+                                    const next = [...editingWeekendDays, d.day].sort();
+                                    setEditingWeekendDays(next);
+                                    if (d.day === 6 && editingSatRule === 'none') {
+                                      setEditingSatRule('all');
+                                    }
+                                  }
+                                }}
+                                className={`px-3 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-between gap-2 cursor-pointer border ${isSelected
+                                    ? 'bg-[#2d6a4f] text-white border-[#2d6a4f] shadow-sm'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:border-[#95d5b2] hover:bg-[#f8f9fa]'
+                                  }`}
+                              >
+                                <span className="flex items-center gap-1.5 truncate">
+                                  {isSelected ? (
+                                    <Check className="w-3.5 h-3.5 text-[#b7e4c7] shrink-0" />
+                                  ) : (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
+                                  )}
+                                  <span className="truncate">{d.label}</span>
+                                </span>
+                                <span
+                                  className={`text-[9px] uppercase px-1.5 py-0.5 rounded-md font-bold shrink-0 ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                                    }`}
+                                >
+                                  {isSelected ? 'Off' : 'Work'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Saturday Rule Selector (if Saturday is selected) */}
+                      {editingWeekendDays.includes(6) && (
+                        <div className="pt-4 border-t border-slate-100 space-y-2.5 animate-in fade-in">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                              Saturday Operational Schedule
+                            </label>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              Choose whether all Saturdays are holidays or alternate Saturdays remain working days.
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                            {[
+                              { id: 'all', title: 'All Saturdays Off', desc: 'Every Saturday is an official weekend' },
+                              { id: 'alternate_2_4', title: '2nd & 4th Sat Off', desc: '1st, 3rd & 5th Saturdays are working' },
+                              { id: 'alternate_1_3', title: '1st & 3rd Sat Off', desc: '2nd & 4th Saturdays are working' },
+                            ].map((opt) => {
+                              const isAct = editingSatRule === opt.id;
+                              return (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() => setEditingSatRule(opt.id as any)}
+                                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${isAct
+                                      ? 'border-[#2d6a4f] bg-[#d8f3dc]/40 ring-1 ring-[#2d6a4f]/40 shadow-2xs'
+                                      : 'border-slate-200 bg-white hover:border-[#95d5b2] hover:bg-[#f8f9fa]'
+                                    }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className={`text-xs font-bold ${isAct ? 'text-[#1b4332]' : 'text-slate-800'}`}>
+                                      {opt.title}
+                                    </span>
+                                    <span
+                                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${isAct ? 'border-[#2d6a4f] bg-[#2d6a4f]' : 'border-slate-300 bg-white'
+                                        }`}
+                                    >
+                                      {isAct && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">{opt.desc}</p>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Real-time Summary Box */}
+                      <div className="p-3.5 rounded-xl bg-[#d8f3dc]/35 border border-[#95d5b2] text-xs">
+                        <div className="flex items-center gap-2 font-bold text-[#1b4332]">
+                          <span className="w-2 h-2 rounded-full bg-[#2d6a4f] shrink-0" />
+                          <span>Active Policy Preview</span>
+                        </div>
+                        <p className="mt-1 font-semibold text-[13px] text-[#081c15]">
+                          {getWeekendPolicyDescription({
+                            weekendDays: editingWeekendDays,
+                            saturdayRule: editingWeekendDays.includes(6) ? editingSatRule : 'none',
+                          })}
+                        </p>
+                        <p className="text-[11px] text-[#2d6a4f] mt-0.5">
+                          Unselected days will be treated as working days in calendar and attendance records.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="px-5 py-4 sm:px-6 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
+                      <button
+                        type="button"
+                        disabled={isSavingWeekend}
+                        onClick={() => setIsWeekendModalOpen(false)}
+                        className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold text-xs hover:bg-slate-50 cursor-pointer disabled:opacity-50 transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSavingWeekend}
+                        onClick={handleSaveWeekendPolicy}
+                        className="px-5 py-2.5 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-bold text-xs shadow-xs active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5 transition"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>{isSavingWeekend ? 'Saving Policy...' : 'Save Weekend Policy'}</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
 
-              {/* Real-time Summary Box */}
-              <div className="p-3.5 rounded-xl bg-indigo-50/60 border border-indigo-100 text-indigo-950 text-xs">
-                <div className="flex items-center gap-1.5 font-bold text-indigo-900">
-                  <span className="w-2 h-2 rounded-full bg-indigo-600" />
-                  <span>Preview Configuration:</span>
-                </div>
-                <p className="mt-1 font-bold text-xs text-indigo-950">
-                  {getWeekendPolicyDescription({
-                    weekendDays: editingWeekendDays,
-                    saturdayRule: editingWeekendDays.includes(6) ? editingSatRule : 'none',
-                  })}
-                </p>
-                <p className="text-[11px] text-indigo-700/80 mt-0.5">
-                  Unselected days will be treated as operational business days in calendar statistics and attendance records.
-                </p>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
-              <button
-                type="button"
-                disabled={isSavingWeekend}
-                onClick={() => setIsWeekendModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold text-xs hover:bg-slate-50 cursor-pointer disabled:opacity-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isSavingWeekend}
-                onClick={handleSaveWeekendPolicy}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5 transition"
-              >
-                <Check className="w-4 h-4" />
-                <span>{isSavingWeekend ? 'Saving Policy...' : 'Save Weekend Policy'}</span>
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* =========================================================================
+              {/* =========================================================================
           ANIMATED FLOATING HOVER POPUP (DATE DETAILS & EMPLOYEES ON LEAVE)
           ========================================================================= */}
-      {mounted && hoveredDate && hoverPosition && typeof document !== 'undefined' &&
-        createPortal(
-          <div
-            onMouseEnter={handlePopupMouseEnter}
-            onMouseLeave={handlePopupMouseLeave}
-            style={{
-              position: 'fixed',
-              left: `${hoverPosition.x}px`,
-              ...(hoverPosition.placement === 'bottom'
-                ? { top: `${hoverPosition.y}px` }
-                : { bottom: `${window.innerHeight - hoverPosition.y}px` }),
-              zIndex: 99999,
-            }}
-            className={`w-76 sm:w-80 bg-white/95 backdrop-blur-md border border-[#dee2e6] rounded-2xl shadow-xl p-3.5 space-y-3 pointer-events-auto select-none ${
-              hoverPosition.placement === 'bottom' ? 'animate-calendar-pop' : 'animate-calendar-pop-above'
-            }`}
-          >
-            {/* Header: Date + Day Badge */}
-            <div className="flex items-center justify-between pb-2 border-b border-[#e9ecef] gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-[#1b4332] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                  {hoveredDate.day}
-                </div>
-                <div className="leading-tight">
-                  <h4 className="text-xs font-bold text-[#212529]">
-                    {hoveredDate.day} {monthNames[month]} {year}
-                  </h4>
-                  <span className="text-[10px] text-[#6c757d] font-medium">
-                    {new Date(year, month, hoveredDate.day).toLocaleDateString('en-US', { weekday: 'long' })}
-                  </span>
-                </div>
-              </div>
+              {mounted && hoveredDate && hoverPosition && typeof document !== 'undefined' &&
+                createPortal(
+                  <div
+                    onMouseEnter={handlePopupMouseEnter}
+                    onMouseLeave={handlePopupMouseLeave}
+                    style={{
+                      position: 'fixed',
+                      left: `${hoverPosition.x}px`,
+                      ...(hoverPosition.placement === 'bottom'
+                        ? { top: `${hoverPosition.y}px` }
+                        : { bottom: `${window.innerHeight - hoverPosition.y}px` }),
+                      zIndex: 99999,
+                    }}
+                    className={`w-76 sm:w-80 bg-white/95 backdrop-blur-md border border-[#dee2e6] rounded-2xl shadow-xl p-3.5 space-y-3 pointer-events-auto select-none ${hoverPosition.placement === 'bottom' ? 'animate-calendar-pop' : 'animate-calendar-pop-above'
+                      }`}
+                  >
+                    {/* Header: Date + Day Badge */}
+                    <div className="flex items-center justify-between pb-2 border-b border-[#e9ecef] gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-[#1b4332] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                          {hoveredDate.day}
+                        </div>
+                        <div className="leading-tight">
+                          <h4 className="text-xs font-bold text-[#212529]">
+                            {hoveredDate.day} {monthNames[month]} {year}
+                          </h4>
+                          <span className="text-[10px] text-[#6c757d] font-medium">
+                            {new Date(year, month, hoveredDate.day).toLocaleDateString('en-US', { weekday: 'long' })}
+                          </span>
+                        </div>
+                      </div>
 
-              {/* Day Classification Badge */}
-              <div>
-                {hoveredDate.holiday ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1b4332] text-[#95d5b2] border border-[#081c15] flex items-center gap-1 shadow-2xs">
-                    <Star className="w-2.5 h-2.5 fill-[#95d5b2]" />
-                    <span className="truncate max-w-[80px]">Holiday</span>
-                  </span>
-                ) : hoveredDate.isWeekend ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e9ecef] text-[#495057] border border-[#ced4da] flex items-center gap-1 shadow-2xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#6c757d]" />
-                    <span>Weekend</span>
-                  </span>
-                ) : hoveredDate.isToday ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#d8f3dc] text-[#1b4332] border border-[#74c69d] flex items-center gap-1 shadow-2xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]" />
-                    <span>Today</span>
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f8f9fa] text-[#495057] border border-[#dee2e6]">
-                    Work Day
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Date Details / Shift & Punch Summary */}
-            <div className="bg-[#f8f9fa] rounded-xl p-2.5 border border-[#e9ecef] space-y-1 text-[11px]">
-              {hoveredDate.holiday ? (
-                <div className="flex items-start gap-1.5 text-[#1b4332]">
-                  <Star className="w-3 h-3 text-[#2d6a4f] fill-[#2d6a4f] shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">{hoveredDate.holiday}</span>
-                    {hoveredDate.holidayObj?.description && (
-                      <p className="text-[10px] text-[#6c757d] leading-normal mt-0.5">
-                        {hoveredDate.holidayObj.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ) : hoveredDate.isWeekend ? (
-                <div className="flex items-center gap-1.5 text-[#495057]">
-                  <CalendarDays className="w-3.5 h-3.5 text-[#6c757d] shrink-0" />
-                  <span>Weekly Off Duty &bull; {getWeekendPolicyDescription(scheduleConfig)}</span>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[#495057]">
-                    <span className="text-[10px] text-[#6c757d]">Shift:</span>
-                    <span className="font-semibold text-[#212529]">
-                      {scheduleConfig.shiftStartTime || '09:00 AM'} – {scheduleConfig.shiftEndTime || '06:00 PM'}
-                    </span>
-                  </div>
-
-                  {isAdminCalendar ? (
-                    <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
-                      <span className="text-[10px] text-[#6c757d]">Present:</span>
-                      <span className="font-semibold text-[#1b4332] flex items-center gap-1">
-                        <Users className="w-3 h-3 text-[#2d6a4f]" />
-                        <span>{(hoveredDate.staffCount ?? 0) > 0 ? `${hoveredDate.staffCount} Staff Present` : '0 Present'}</span>
-                      </span>
+                      {/* Day Classification Badge */}
+                      <div>
+                        {hoveredDate.holiday ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1b4332] text-[#95d5b2] border border-[#081c15] flex items-center gap-1 shadow-2xs">
+                            <Star className="w-2.5 h-2.5 fill-[#95d5b2]" />
+                            <span className="truncate max-w-[80px]">Holiday</span>
+                          </span>
+                        ) : hoveredDate.isWeekend ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e9ecef] text-[#495057] border border-[#ced4da] flex items-center gap-1 shadow-2xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#6c757d]" />
+                            <span>Weekend</span>
+                          </span>
+                        ) : hoveredDate.isToday ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#d8f3dc] text-[#1b4332] border border-[#74c69d] flex items-center gap-1 shadow-2xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]" />
+                            <span>Today</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f8f9fa] text-[#495057] border border-[#dee2e6]">
+                            Work Day
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  ) : hoveredDate.attendance ? (
-                    <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
-                      <span className="text-[10px] text-[#6c757d]">Punch:</span>
-                      <span className="font-semibold text-[#1b4332]">
-                        {hoveredDate.attendance.checkIn || '--'} &rarr; {hoveredDate.attendance.checkOut || 'Active'}
-                        {hoveredDate.attendance.workingHours ? ` (${hoveredDate.attendance.workingHours}h)` : ''}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between text-[#6c757d] pt-0.5 border-t border-[#e9ecef]">
-                      <span className="text-[10px]">Status:</span>
-                      <span className="text-[10px] font-medium italic">No attendance punched</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
 
-            {/* Employees On Leave List Section */}
-            <div className="space-y-1.5 pt-0.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-[#212529] flex items-center gap-1.5 text-[11px]">
-                  <CalendarOff className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                  <span>Employees on Leave</span>
-                </span>
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    hoveredDate.leaves.length > 0
-                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                      : 'bg-[#e9ecef] text-[#6c757d]'
-                  }`}
-                >
-                  {hoveredDate.leaves.length}
-                </span>
-              </div>
-
-              {hoveredDate.leaves.length === 0 ? (
-                <div className="flex items-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] text-[11px] text-[#6c757d]">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
-                  <span>No employees on leave on this date</span>
-                </div>
-              ) : (
-                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5 custom-scrollbar">
-                  {hoveredDate.leaves.map((lv: LeaveRequest, lIdx: number) => {
-                    const empName = resolveLeaveEmployeeName(lv);
-                    const deptName = resolveLeaveDepartment(lv);
-                    const isApproved = lv.status === 'Approved';
-                    const isOwn = isOwnLeave(lv);
-
-                    return (
-                      <div
-                        key={lv.id || lIdx}
-                        className="p-2 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] hover:border-[#95d5b2] hover:bg-[#d8f3dc]/15 transition-all flex items-center justify-between gap-2"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-6 h-6 rounded-full bg-[#1b4332] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                            {empName.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0 leading-tight">
-                            <p className="text-[11px] font-bold text-[#212529] truncate flex items-center gap-1">
-                              <span>{empName}</span>
-                              {isOwn && (
-                                <span className="text-[9px] font-semibold text-[#2d6a4f]">(You)</span>
-                              )}
-                            </p>
-                            <p className="text-[10px] text-[#6c757d] truncate">
-                              {deptName} &bull; <span className="font-medium text-[#495057]">{lv.leaveType}</span>
-                              {lv.isHalfDay && ' (Half Day)'}
-                            </p>
+                    {/* Date Details / Shift & Punch Summary */}
+                    <div className="bg-[#f8f9fa] rounded-xl p-2.5 border border-[#e9ecef] space-y-1 text-[11px]">
+                      {hoveredDate.holiday ? (
+                        <div className="flex items-start gap-1.5 text-[#1b4332]">
+                          <Star className="w-3 h-3 text-[#2d6a4f] fill-[#2d6a4f] shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold">{hoveredDate.holiday}</span>
+                            {hoveredDate.holidayObj?.description && (
+                              <p className="text-[10px] text-[#6c757d] leading-normal mt-0.5">
+                                {hoveredDate.holidayObj.description}
+                              </p>
+                            )}
                           </div>
                         </div>
+                      ) : hoveredDate.isWeekend ? (
+                        <div className="flex items-center gap-1.5 text-[#495057]">
+                          <CalendarDays className="w-3.5 h-3.5 text-[#6c757d] shrink-0" />
+                          <span>Weekly Off Duty &bull; {getWeekendPolicyDescription(scheduleConfig)}</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[#495057]">
+                            <span className="text-[10px] text-[#6c757d]">Shift:</span>
+                            <span className="font-semibold text-[#212529]">
+                              {scheduleConfig.shiftStartTime || '09:00 AM'} – {scheduleConfig.shiftEndTime || '06:00 PM'}
+                            </span>
+                          </div>
 
+                          {isAdminCalendar ? (
+                            <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
+                              <span className="text-[10px] text-[#6c757d]">Present:</span>
+                              <span className="font-semibold text-[#1b4332] flex items-center gap-1">
+                                <Users className="w-3 h-3 text-[#2d6a4f]" />
+                                <span>{(hoveredDate.staffCount ?? 0) > 0 ? `${hoveredDate.staffCount} Staff Present` : '0 Present'}</span>
+                              </span>
+                            </div>
+                          ) : hoveredDate.attendance ? (
+                            <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
+                              <span className="text-[10px] text-[#6c757d]">Punch:</span>
+                              <span className="font-semibold text-[#1b4332]">
+                                {hoveredDate.attendance.checkIn || '--'} &rarr; {hoveredDate.attendance.checkOut || 'Active'}
+                                {hoveredDate.attendance.workingHours ? ` (${hoveredDate.attendance.workingHours}h)` : ''}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between text-[#6c757d] pt-0.5 border-t border-[#e9ecef]">
+                              <span className="text-[10px]">Status:</span>
+                              <span className="text-[10px] font-medium italic">No attendance punched</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Employees On Leave List Section */}
+                    <div className="space-y-1.5 pt-0.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-[#212529] flex items-center gap-1.5 text-[11px]">
+                          <CalendarOff className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                          <span>Employees on Leave</span>
+                        </span>
                         <span
-                          className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 border ${
-                            isApproved
-                              ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
-                              : 'bg-amber-50 text-amber-800 border-amber-200'
-                          }`}
+                          className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${hoveredDate.leaves.length > 0
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-[#e9ecef] text-[#6c757d]'
+                            }`}
                         >
-                          {lv.status}
+                          {hoveredDate.leaves.length}
                         </span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>,
-          document.body
-        )}
 
-      {/* =========================================================================
-          MODAL: CONFIGURE CORPORATE WEEKEND POLICY
-          ========================================================================= */}
-      {mounted && isWeekendModalOpen && typeof document !== 'undefined' && createPortal(
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !isSavingWeekend) setIsWeekendModalOpen(false);
-          }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#081c15]/55 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-[#dee2e6] overflow-hidden animate-in fade-in zoom-in-95 my-auto max-h-[92vh] overflow-y-auto"
-          >
-            {/* Modal Header */}
-            <div className="p-5 bg-[#1b4332] text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="p-2 rounded-xl bg-white/15 text-[#95d5b2]">
-                  <CalendarDays className="w-5 h-5 text-[#95d5b2]" />
-                </span>
-                <div>
-                  <h3 className="font-extrabold text-sm sm:text-base text-white">
-                    Corporate Weekend Schedule
-                  </h3>
-                  <p className="text-[11px] text-[#d8f3dc]">
-                    Configure official weekly off days for company calendar &amp; attendance
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={isSavingWeekend}
-                onClick={() => setIsWeekendModalOpen(false)}
-                className="p-1.5 rounded-xl text-[#d8f3dc] hover:text-white hover:bg-white/10 transition cursor-pointer disabled:opacity-50"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-5 sm:p-6 space-y-5">
-              {/* Day selection */}
-              <div>
-                <label className="block text-xs font-bold text-[#212529] mb-1">
-                  Weekly Non-Working Days (Off Days)
-                </label>
-                <p className="text-[11px] text-[#6c757d] mb-3">
-                  Click a day to toggle between Working Day and Weekend Off. Only selected days will appear as weekends.
-                </p>
-
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { day: 0, label: 'Sunday', short: 'Sun' },
-                    { day: 1, label: 'Monday', short: 'Mon' },
-                    { day: 2, label: 'Tuesday', short: 'Tue' },
-                    { day: 3, label: 'Wednesday', short: 'Wed' },
-                    { day: 4, label: 'Thursday', short: 'Thu' },
-                    { day: 5, label: 'Friday', short: 'Fri' },
-                    { day: 6, label: 'Saturday', short: 'Sat' },
-                  ].map((d) => {
-                    const isSelected = editingWeekendDays.includes(d.day);
-                    return (
-                      <button
-                        key={d.day}
-                        type="button"
-                        onClick={() => {
-                          if (isSelected) {
-                            setEditingWeekendDays(editingWeekendDays.filter((x) => x !== d.day));
-                            if (d.day === 6) setEditingSatRule('none');
-                          } else {
-                            const next = [...editingWeekendDays, d.day].sort();
-                            setEditingWeekendDays(next);
-                            if (d.day === 6 && editingSatRule === 'none') {
-                              setEditingSatRule('all');
-                            }
-                          }
-                        }}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${isSelected
-                            ? 'bg-[#1b4332] text-white border-[#081c15] shadow-xs'
-                            : 'bg-[#f8f9fa] text-[#495057] border-[#dee2e6] hover:border-[#adb5bd] hover:bg-white'
-                          }`}
-                      >
-                        {isSelected && <Check className="w-3.5 h-3.5 text-[#95d5b2]" />}
-                        <span>{d.label}</span>
-                        <span
-                          className={`text-[9px] uppercase px-1.5 py-0.5 rounded-md font-bold ${isSelected ? 'bg-white/20 text-[#d8f3dc]' : 'bg-[#e9ecef] text-[#6c757d]'
-                            }`}
-                        >
-                          {isSelected ? 'Off' : 'Work'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Saturday Rule Selector (if Saturday is selected) */}
-              {editingWeekendDays.includes(6) && (
-                <div className="pt-3 border-t border-[#e9ecef] space-y-2 animate-in fade-in">
-                  <label className="block text-xs font-bold text-[#212529]">
-                    Saturday Operational Schedule
-                  </label>
-                  <p className="text-[11px] text-[#6c757d]">
-                    Choose whether all Saturdays are holidays or alternate Saturdays remain working days.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                    {[
-                      { id: 'all', title: 'All Saturdays Off', desc: 'Every Saturday is a full corporate weekend' },
-                      { id: 'alternate_2_4', title: '2nd & 4th Saturday Off', desc: '1st, 3rd & 5th Saturdays are working days' },
-                      { id: 'alternate_1_3', title: '1st & 3rd Saturday Off', desc: '2nd & 4th Saturdays are working days' },
-                    ].map((opt) => {
-                      const isAct = editingSatRule === opt.id;
-                      return (
-                        <div
-                          key={opt.id}
-                          onClick={() => setEditingSatRule(opt.id as any)}
-                          className={`p-3 rounded-xl border cursor-pointer transition-all ${isAct
-                              ? 'border-[#1b4332] bg-[#d8f3dc]/35 ring-1 ring-[#1b4332]'
-                              : 'border-[#dee2e6] bg-[#f8f9fa] hover:border-[#adb5bd]'
-                            }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#212529]">{opt.title}</span>
-                            <input
-                              type="radio"
-                              name="calendarSatRule"
-                              checked={isAct}
-                              onChange={() => { }}
-                              className="text-[#1b4332] focus:ring-[#2d6a4f]"
-                            />
-                          </div>
-                          <p className="text-[11px] text-[#6c757d] mt-1 leading-snug">{opt.desc}</p>
+                      {hoveredDate.leaves.length === 0 ? (
+                        <div className="flex items-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] text-[11px] text-[#6c757d]">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
+                          <span>No employees on leave on this date</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                      ) : (
+                        <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5 custom-scrollbar">
+                          {hoveredDate.leaves.map((lv: LeaveRequest, lIdx: number) => {
+                            const empName = resolveLeaveEmployeeName(lv);
+                            const deptName = resolveLeaveDepartment(lv);
+                            const isApproved = lv.status === 'Approved';
+                            const isOwn = isOwnLeave(lv);
 
-              {/* Real-time Summary Box */}
-              <div className="p-3.5 rounded-xl bg-[#d8f3dc]/40 border border-[#95d5b2] text-[#1b4332] text-xs">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-[#2d6a4f]" />
-                  <span>Preview Configuration:</span>
-                </div>
-                <p className="mt-1 font-semibold text-sm text-[#081c15]">
-                  {getWeekendPolicyDescription({
-                    weekendDays: editingWeekendDays,
-                    saturdayRule: editingWeekendDays.includes(6) ? editingSatRule : 'none',
-                  })}
-                </p>
-                <p className="text-[11px] text-[#2d6a4f] mt-0.5">
-                  Unselected days will be treated as operational business days in calendar statistics and attendance records.
-                </p>
-              </div>
+                            return (
+                              <div
+                                key={lv.id || lIdx}
+                                className="p-2 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] hover:border-[#95d5b2] hover:bg-[#d8f3dc]/15 transition-all flex items-center justify-between gap-2"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-6 h-6 rounded-full bg-[#1b4332] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                    {empName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0 leading-tight">
+                                    <p className="text-[11px] font-bold text-[#212529] truncate flex items-center gap-1">
+                                      <span>{empName}</span>
+                                      {isOwn && (
+                                        <span className="text-[9px] font-semibold text-[#2d6a4f]">(You)</span>
+                                      )}
+                                    </p>
+                                    <p className="text-[10px] text-[#6c757d] truncate">
+                                      {deptName} &bull; <span className="font-medium text-[#495057]">{lv.leaveType}</span>
+                                      {lv.isHalfDay && ' (Half Day)'}
+                                    </p>
+                                  </div>
+                                </div>
 
-              {/* Action Buttons */}
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#e9ecef]">
-                <button
-                  type="button"
-                  disabled={isSavingWeekend}
-                  onClick={() => setIsWeekendModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-[#dee2e6] text-[#495057] font-bold text-xs hover:bg-[#f8f9fa] cursor-pointer disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={isSavingWeekend}
-                  onClick={handleSaveWeekendPolicy}
-                  className="px-5 py-2 rounded-xl bg-[#2d6a4f] hover:bg-[#1b4332] text-white font-bold text-xs shadow-xs active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>{isSavingWeekend ? 'Saving Policy...' : 'Save Weekend Policy'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+                                <span
+                                  className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 border ${isApproved
+                                      ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                    }`}
+                                >
+                                  {lv.status}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>,
+                  document.body
+                )}
 
-      {/* =========================================================================
+              {/* =========================================================================
           ANIMATED FLOATING HOVER POPUP (DATE DETAILS & EMPLOYEES ON LEAVE)
           ========================================================================= */}
-      {mounted && hoveredDate && hoverPosition && typeof document !== 'undefined' &&
-        createPortal(
-          <div
-            onMouseEnter={handlePopupMouseEnter}
-            onMouseLeave={handlePopupMouseLeave}
-            style={{
-              position: 'fixed',
-              left: `${hoverPosition.x}px`,
-              ...(hoverPosition.placement === 'bottom'
-                ? { top: `${hoverPosition.y}px` }
-                : { bottom: `${window.innerHeight - hoverPosition.y}px` }),
-              zIndex: 99999,
-            }}
-            className={`w-76 sm:w-80 bg-white/95 backdrop-blur-md border border-[#dee2e6] rounded-2xl shadow-xl p-3.5 space-y-3 pointer-events-auto select-none ${
-              hoverPosition.placement === 'bottom' ? 'animate-calendar-pop' : 'animate-calendar-pop-above'
-            }`}
-          >
-            {/* Header: Date + Day Badge */}
-            <div className="flex items-center justify-between pb-2 border-b border-[#e9ecef] gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-[#1b4332] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                  {hoveredDate.day}
-                </div>
-                <div className="leading-tight">
-                  <h4 className="text-xs font-bold text-[#212529]">
-                    {hoveredDate.day} {monthNames[month]} {year}
-                  </h4>
-                  <span className="text-[10px] text-[#6c757d] font-medium">
-                    {new Date(year, month, hoveredDate.day).toLocaleDateString('en-US', { weekday: 'long' })}
-                  </span>
-                </div>
-              </div>
+              {mounted && hoveredDate && hoverPosition && typeof document !== 'undefined' &&
+                createPortal(
+                  <div
+                    onMouseEnter={handlePopupMouseEnter}
+                    onMouseLeave={handlePopupMouseLeave}
+                    style={{
+                      position: 'fixed',
+                      left: `${hoverPosition.x}px`,
+                      ...(hoverPosition.placement === 'bottom'
+                        ? { top: `${hoverPosition.y}px` }
+                        : { bottom: `${window.innerHeight - hoverPosition.y}px` }),
+                      zIndex: 99999,
+                    }}
+                    className={`w-76 sm:w-80 bg-white/95 backdrop-blur-md border border-[#dee2e6] rounded-2xl shadow-xl p-3.5 space-y-3 pointer-events-auto select-none ${hoverPosition.placement === 'bottom' ? 'animate-calendar-pop' : 'animate-calendar-pop-above'
+                      }`}
+                  >
+                    {/* Header: Date + Day Badge */}
+                    <div className="flex items-center justify-between pb-2 border-b border-[#e9ecef] gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-[#1b4332] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                          {hoveredDate.day}
+                        </div>
+                        <div className="leading-tight">
+                          <h4 className="text-xs font-bold text-[#212529]">
+                            {hoveredDate.day} {monthNames[month]} {year}
+                          </h4>
+                          <span className="text-[10px] text-[#6c757d] font-medium">
+                            {new Date(year, month, hoveredDate.day).toLocaleDateString('en-US', { weekday: 'long' })}
+                          </span>
+                        </div>
+                      </div>
 
-              {/* Day Classification Badge */}
-              <div>
-                {hoveredDate.holiday ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1b4332] text-[#95d5b2] border border-[#081c15] flex items-center gap-1 shadow-2xs">
-                    <Star className="w-2.5 h-2.5 fill-[#95d5b2]" />
-                    <span className="truncate max-w-[80px]">Holiday</span>
-                  </span>
-                ) : hoveredDate.isWeekend ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e9ecef] text-[#495057] border border-[#ced4da] flex items-center gap-1 shadow-2xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#6c757d]" />
-                    <span>Weekend</span>
-                  </span>
-                ) : hoveredDate.isToday ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#d8f3dc] text-[#1b4332] border border-[#74c69d] flex items-center gap-1 shadow-2xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]" />
-                    <span>Today</span>
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f8f9fa] text-[#495057] border border-[#dee2e6]">
-                    Work Day
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Date Details / Shift & Punch Summary */}
-            <div className="bg-[#f8f9fa] rounded-xl p-2.5 border border-[#e9ecef] space-y-1 text-[11px]">
-              {hoveredDate.holiday ? (
-                <div className="flex items-start gap-1.5 text-[#1b4332]">
-                  <Star className="w-3 h-3 text-[#2d6a4f] fill-[#2d6a4f] shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">{hoveredDate.holiday}</span>
-                    {hoveredDate.holidayObj?.description && (
-                      <p className="text-[10px] text-[#6c757d] leading-normal mt-0.5">
-                        {hoveredDate.holidayObj.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ) : hoveredDate.isWeekend ? (
-                <div className="flex items-center gap-1.5 text-[#495057]">
-                  <CalendarDays className="w-3.5 h-3.5 text-[#6c757d] shrink-0" />
-                  <span>Weekly Off Duty &bull; {getWeekendPolicyDescription(scheduleConfig)}</span>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[#495057]">
-                    <span className="text-[10px] text-[#6c757d]">Shift:</span>
-                    <span className="font-semibold text-[#212529]">
-                      {scheduleConfig.shiftStartTime || '09:00 AM'} – {scheduleConfig.shiftEndTime || '06:00 PM'}
-                    </span>
-                  </div>
-
-                  {isAdminCalendar ? (
-                    <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
-                      <span className="text-[10px] text-[#6c757d]">Present:</span>
-                      <span className="font-semibold text-[#1b4332] flex items-center gap-1">
-                        <Users className="w-3 h-3 text-[#2d6a4f]" />
-                        <span>{(hoveredDate.staffCount ?? 0) > 0 ? `${hoveredDate.staffCount} Staff Present` : '0 Present'}</span>
-                      </span>
+                      {/* Day Classification Badge */}
+                      <div>
+                        {hoveredDate.holiday ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1b4332] text-[#95d5b2] border border-[#081c15] flex items-center gap-1 shadow-2xs">
+                            <Star className="w-2.5 h-2.5 fill-[#95d5b2]" />
+                            <span className="truncate max-w-[80px]">Holiday</span>
+                          </span>
+                        ) : hoveredDate.isWeekend ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#e9ecef] text-[#495057] border border-[#ced4da] flex items-center gap-1 shadow-2xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#6c757d]" />
+                            <span>Weekend</span>
+                          </span>
+                        ) : hoveredDate.isToday ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#d8f3dc] text-[#1b4332] border border-[#74c69d] flex items-center gap-1 shadow-2xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#2d6a4f]" />
+                            <span>Today</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f8f9fa] text-[#495057] border border-[#dee2e6]">
+                            Work Day
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  ) : hoveredDate.attendance ? (
-                    <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
-                      <span className="text-[10px] text-[#6c757d]">Punch:</span>
-                      <span className="font-semibold text-[#1b4332]">
-                        {hoveredDate.attendance.checkIn || '--'} &rarr; {hoveredDate.attendance.checkOut || 'Active'}
-                        {hoveredDate.attendance.workingHours ? ` (${hoveredDate.attendance.workingHours}h)` : ''}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between text-[#6c757d] pt-0.5 border-t border-[#e9ecef]">
-                      <span className="text-[10px]">Status:</span>
-                      <span className="text-[10px] font-medium italic">No attendance punched</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
 
-            {/* Employees On Leave List Section */}
-            <div className="space-y-1.5 pt-0.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-[#212529] flex items-center gap-1.5 text-[11px]">
-                  <CalendarOff className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                  <span>Employees on Leave</span>
-                </span>
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    hoveredDate.leaves.length > 0
-                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                      : 'bg-[#e9ecef] text-[#6c757d]'
-                  }`}
-                >
-                  {hoveredDate.leaves.length}
-                </span>
-              </div>
-
-              {hoveredDate.leaves.length === 0 ? (
-                <div className="flex items-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] text-[11px] text-[#6c757d]">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
-                  <span>No employees on leave on this date</span>
-                </div>
-              ) : (
-                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5 custom-scrollbar">
-                  {hoveredDate.leaves.map((lv: LeaveRequest, lIdx: number) => {
-                    const empName = resolveLeaveEmployeeName(lv);
-                    const deptName = resolveLeaveDepartment(lv);
-                    const isApproved = lv.status === 'Approved';
-                    const isOwn = isOwnLeave(lv);
-
-                    return (
-                      <div
-                        key={lv.id || lIdx}
-                        className="p-2 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] hover:border-[#95d5b2] hover:bg-[#d8f3dc]/15 transition-all flex items-center justify-between gap-2"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-6 h-6 rounded-full bg-[#1b4332] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                            {empName.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0 leading-tight">
-                            <p className="text-[11px] font-bold text-[#212529] truncate flex items-center gap-1">
-                              <span>{empName}</span>
-                              {isOwn && (
-                                <span className="text-[9px] font-semibold text-[#2d6a4f]">(You)</span>
-                              )}
-                            </p>
-                            <p className="text-[10px] text-[#6c757d] truncate">
-                              {deptName} &bull; <span className="font-medium text-[#495057]">{lv.leaveType}</span>
-                              {lv.isHalfDay && ' (Half Day)'}
-                            </p>
+                    {/* Date Details / Shift & Punch Summary */}
+                    <div className="bg-[#f8f9fa] rounded-xl p-2.5 border border-[#e9ecef] space-y-1 text-[11px]">
+                      {hoveredDate.holiday ? (
+                        <div className="flex items-start gap-1.5 text-[#1b4332]">
+                          <Star className="w-3 h-3 text-[#2d6a4f] fill-[#2d6a4f] shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold">{hoveredDate.holiday}</span>
+                            {hoveredDate.holidayObj?.description && (
+                              <p className="text-[10px] text-[#6c757d] leading-normal mt-0.5">
+                                {hoveredDate.holidayObj.description}
+                              </p>
+                            )}
                           </div>
                         </div>
+                      ) : hoveredDate.isWeekend ? (
+                        <div className="flex items-center gap-1.5 text-[#495057]">
+                          <CalendarDays className="w-3.5 h-3.5 text-[#6c757d] shrink-0" />
+                          <span>Weekly Off Duty &bull; {getWeekendPolicyDescription(scheduleConfig)}</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[#495057]">
+                            <span className="text-[10px] text-[#6c757d]">Shift:</span>
+                            <span className="font-semibold text-[#212529]">
+                              {scheduleConfig.shiftStartTime || '09:00 AM'} – {scheduleConfig.shiftEndTime || '06:00 PM'}
+                            </span>
+                          </div>
 
+                          {isAdminCalendar ? (
+                            <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
+                              <span className="text-[10px] text-[#6c757d]">Present:</span>
+                              <span className="font-semibold text-[#1b4332] flex items-center gap-1">
+                                <Users className="w-3 h-3 text-[#2d6a4f]" />
+                                <span>{(hoveredDate.staffCount ?? 0) > 0 ? `${hoveredDate.staffCount} Staff Present` : '0 Present'}</span>
+                              </span>
+                            </div>
+                          ) : hoveredDate.attendance ? (
+                            <div className="flex items-center justify-between text-[#495057] pt-0.5 border-t border-[#e9ecef]">
+                              <span className="text-[10px] text-[#6c757d]">Punch:</span>
+                              <span className="font-semibold text-[#1b4332]">
+                                {hoveredDate.attendance.checkIn || '--'} &rarr; {hoveredDate.attendance.checkOut || 'Active'}
+                                {hoveredDate.attendance.workingHours ? ` (${hoveredDate.attendance.workingHours}h)` : ''}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between text-[#6c757d] pt-0.5 border-t border-[#e9ecef]">
+                              <span className="text-[10px]">Status:</span>
+                              <span className="text-[10px] font-medium italic">No attendance punched</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Employees On Leave List Section */}
+                    <div className="space-y-1.5 pt-0.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-[#212529] flex items-center gap-1.5 text-[11px]">
+                          <CalendarOff className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                          <span>Employees on Leave</span>
+                        </span>
                         <span
-                          className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 border ${
-                            isApproved
-                              ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
-                              : 'bg-amber-50 text-amber-800 border-amber-200'
-                          }`}
+                          className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${hoveredDate.leaves.length > 0
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-[#e9ecef] text-[#6c757d]'
+                            }`}
                         >
-                          {lv.status}
+                          {hoveredDate.leaves.length}
                         </span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+
+                      {hoveredDate.leaves.length === 0 ? (
+                        <div className="flex items-center gap-1.5 py-2 px-2.5 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] text-[11px] text-[#6c757d]">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
+                          <span>No employees on leave on this date</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5 custom-scrollbar">
+                          {hoveredDate.leaves.map((lv: LeaveRequest, lIdx: number) => {
+                            const empName = resolveLeaveEmployeeName(lv);
+                            const deptName = resolveLeaveDepartment(lv);
+                            const isApproved = lv.status === 'Approved';
+                            const isOwn = isOwnLeave(lv);
+
+                            return (
+                              <div
+                                key={lv.id || lIdx}
+                                className="p-2 rounded-xl bg-[#f8f9fa] border border-[#e9ecef] hover:border-[#95d5b2] hover:bg-[#d8f3dc]/15 transition-all flex items-center justify-between gap-2"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-6 h-6 rounded-full bg-[#1b4332] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                    {empName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0 leading-tight">
+                                    <p className="text-[11px] font-bold text-[#212529] truncate flex items-center gap-1">
+                                      <span>{empName}</span>
+                                      {isOwn && (
+                                        <span className="text-[9px] font-semibold text-[#2d6a4f]">(You)</span>
+                                      )}
+                                    </p>
+                                    <p className="text-[10px] text-[#6c757d] truncate">
+                                      {deptName} &bull; <span className="font-medium text-[#495057]">{lv.leaveType}</span>
+                                      {lv.isHalfDay && ' (Half Day)'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <span
+                                  className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold shrink-0 border ${isApproved
+                                      ? 'bg-[#d8f3dc] text-[#1b4332] border-[#95d5b2]'
+                                      : 'bg-amber-50 text-amber-800 border-amber-200'
+                                    }`}
+                                >
+                                  {lv.status}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>,
+                  document.body
+                )}
             </div>
-          </div>,
-          document.body
-        )}
-    </div>
-  );
+          );
 };

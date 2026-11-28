@@ -71,7 +71,7 @@ interface ThemedDatePickerProps {
   align?: 'left' | 'right';
 }
 
-const ThemedDatePicker: React.FC<ThemedDatePickerProps> = ({
+export const ThemedDatePicker: React.FC<ThemedDatePickerProps> = ({
   id,
   value,
   minDate,

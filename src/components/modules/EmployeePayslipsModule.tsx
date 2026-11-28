@@ -374,9 +374,7 @@ export const EmployeePayslipsModule: React.FC<EmployeePayslipsModuleProps> = ({ 
             <h2 className="text-base font-bold text-slate-900">
               Month-wise Salary Slips ({filteredPayslips.length})
             </h2>
-            <p className="text-xs text-slate-500">
-              Click &quot;View Slip&quot; on any month to see the complete salary breakdown and download PDF.
-            </p>
+          
           </div>
 
           <div className="relative w-full sm:w-64">
