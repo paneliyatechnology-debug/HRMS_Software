@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   FileText,
   Layers,
+  LayoutGrid,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -41,6 +42,7 @@ import { getAllCompanies, resolveCompanyBrandAvatar } from '../lib/companyServic
 import { checkEmployeePunchEligibility } from '../lib/attendanceService';
 import { isModuleAllowedForUser, canUserPunch, canCreateUser } from '../lib/rolePermissions';
 import { api } from '../lib/api';
+import { getSharpAvatarUrl } from '../lib/imageUtils';
 
 function readableInitials(firstName?: string | null, lastName?: string | null, email?: string | null) {
   const f = String(firstName || '').trim();
@@ -274,6 +276,9 @@ export const Header: React.FC<HeaderProps> = ({
       case 'employees':
         icon = <Users className="w-3.5 h-3.5" />;
         break;
+      case 'team-directory':
+        icon = <Users className="w-3.5 h-3.5" />;
+        break;
       case 'leaves':
       case 'leave':
         icon = <CalendarOff className="w-3.5 h-3.5" />;
@@ -348,6 +353,8 @@ export const Header: React.FC<HeaderProps> = ({
         return { title: 'Attendance', icon };
       case 'employees':
         return { title: 'Employees', icon };
+      case 'team-directory':
+        return { title: 'Team & Directory', icon };
       case 'leaves':
       case 'leave':
         return {
@@ -616,6 +623,22 @@ export const Header: React.FC<HeaderProps> = ({
             'pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-semibold whitespace-nowrap shadow-lg opacity-0 -translate-y-1 scale-95 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-150 z-50';
           return (
             <div className="flex items-center gap-1.5 shrink-0">
+              {onOpenSearchModal && (
+                <button
+                  id="btn-header-quick-apps"
+                  type="button"
+                  onClick={onOpenSearchModal}
+                  className={getBtnCls(false)}
+                  aria-label="Quick Apps"
+                >
+                  <LayoutGrid className="w-4 h-4 shrink-0 text-[#2d6a4f]" />
+                  <span className={tooltipCls}>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-slate-900" />
+                    Quick Apps (Ctrl+K)
+                  </span>
+                </button>
+              )}
+
               {!resigned && isModuleAllowedForUser('leaves', user) && (
                 <button
                   id="btn-header-apply-leave"
@@ -808,7 +831,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="w-[32px] sm:w-[34px] h-[32px] sm:h-[34px] rounded-full bg-[#d8f3dc] text-[#1b4332] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-2xs border border-[#95d5b2] overflow-hidden">
               {user.avatarUrl ? (
                 <img
-                  src={user.avatarUrl}
+                  src={getSharpAvatarUrl(user.avatarUrl, 128)}
                   alt={user.firstName || 'User'}
                   className="w-full h-full object-cover"
                 />
@@ -832,7 +855,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="px-3.5 py-2.5 border-b border-[#f8f9fa] flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-[#f8f9fa] text-[#343a40] font-bold text-xs flex items-center justify-center shrink-0 border border-[#dee2e6] overflow-hidden">
                   {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    <img src={getSharpAvatarUrl(user.avatarUrl, 128)} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
                     <>{readableInitials(user.firstName, user.lastName, user.email)}</>
                   )}

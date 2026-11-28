@@ -23,14 +23,33 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
 }
 
 /**
+ * Returns a crisp high-DPR Cloudinary avatar URL when applicable so tiny circles
+ * do not suffer from heavy browser downscaling artifacts.
+ */
+export function getSharpAvatarUrl(url?: string, size = 160): string {
+  const clean = (url || '').trim();
+  if (!clean) return '';
+  const uploadMarker = '/image/upload/';
+  if (clean.includes('res.cloudinary.com') && clean.includes(uploadMarker)) {
+    const idx = clean.indexOf(uploadMarker) + uploadMarker.length;
+    const afterUpload = clean.slice(idx);
+    // Only inject transform if not already transformed (next segment is version v123... or public_id)
+    if (/^v\d+\//.test(afterUpload) || !afterUpload.includes(',')) {
+      return `${clean.slice(0, idx)}c_fill,g_face,w_${size},h_${size},dpr_2.0,q_auto:best,f_auto/${afterUpload}`;
+    }
+  }
+  return clean;
+}
+
+/**
  * Resizes and compresses an image file to a lightweight Base64 data URL
  * Perfect for avatars and profile pictures stored in local storage and databases.
  */
 export function compressImage(
   file: File,
-  maxWidth = 360,
-  maxHeight = 360,
-  quality = 0.85
+  maxWidth = 720,
+  maxHeight = 720,
+  quality = 0.92
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -61,7 +80,9 @@ export function compressImage(
           return;
         }
 
-        // Draw image smoothly onto canvas
+        // Draw image smoothly with high quality resampling
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
 
         // Convert to lightweight JPEG or WebP data URL

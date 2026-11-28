@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
+  Calendar,
   CalendarOff,
   CheckSquare,
   CircleDollarSign,
@@ -10,6 +11,7 @@ import {
   MessageSquare,
   Trash2,
   UserCheck,
+  X,
 } from 'lucide-react';
 import { AppNotice, useSocket } from '../../context/SocketContext';
 
@@ -18,6 +20,32 @@ interface NotificationsModuleProps {
 }
 
 type FilterTab = 'All' | 'Unread' | 'Leave' | 'Tasks' | 'Chat' | 'Other';
+
+function toLocalDateKey(isoOrDate?: string): string {
+  const dt = isoOrDate ? new Date(isoOrDate) : new Date();
+  if (Number.isNaN(dt.getTime())) return '';
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const d = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getDateHeading(dateKey: string): string {
+  if (!dateKey) return 'Earlier';
+  const now = new Date();
+  const todayKey = toLocalDateKey(now.toISOString());
+  if (dateKey === todayKey) return 'Today';
+  const yest = new Date(now);
+  yest.setDate(yest.getDate() - 1);
+  if (dateKey === toLocalDateKey(yest.toISOString())) return 'Yesterday';
+  const [y, m, d] = dateKey.split('-').map(Number);
+  if (!y || !m || !d) return dateKey;
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
 
 function formatRelativeTime(isoOrDate?: string): string {
   if (!isoOrDate) return 'Just now';
@@ -88,6 +116,15 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
     disablePushNotifications,
   } = useSocket();
   const [activeTab, setActiveTab] = useState<FilterTab>('All');
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  const todayDateKey = useMemo(() => toLocalDateKey(), []);
+  const yesterdayDateKey = useMemo(() => {
+    const dt = new Date();
+    dt.setDate(dt.getDate() - 1);
+    return toLocalDateKey(dt.toISOString());
+  }, []);
 
   useEffect(() => {
     if (unreadNoticesCount > 0) {
@@ -105,12 +142,32 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
 
   const filteredNotices = useMemo(() => {
     return notices.filter((notice) => {
+      if (selectedDate) {
+        const key = toLocalDateKey(notice.createdAt);
+        if (key !== selectedDate) return false;
+      }
       const isRead = readNoticeIds.includes(notice.id);
       if (activeTab === 'Unread') return !isRead;
       if (activeTab === 'All') return true;
       return resolveNoticeCategory(notice) === activeTab;
     });
-  }, [notices, readNoticeIds, activeTab]);
+  }, [notices, readNoticeIds, activeTab, selectedDate]);
+
+  const groupedNotices = useMemo(() => {
+    const groups: Array<{ dateKey: string; heading: string; items: AppNotice[] }> = [];
+    const map = new Map<string, { dateKey: string; heading: string; items: AppNotice[] }>();
+    for (const notice of filteredNotices) {
+      const dateKey = toLocalDateKey(notice.createdAt);
+      let group = map.get(dateKey);
+      if (!group) {
+        group = { dateKey, heading: getDateHeading(dateKey), items: [] };
+        map.set(dateKey, group);
+        groups.push(group);
+      }
+      group.items.push(notice);
+    }
+    return groups;
+  }, [filteredNotices]);
 
   const handleViewNotice = (notice: AppNotice) => {
     markNoticeRead(notice.id);
@@ -199,7 +256,78 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
           })}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center gap-1 p-1 rounded-xl border border-[#dee2e6] bg-white shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setSelectedDate(selectedDate === todayDateKey ? '' : todayDateKey)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                selectedDate === todayDateKey
+                  ? 'bg-[#2d6a4f] text-white shadow-2xs'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDate(selectedDate === yesterdayDateKey ? '' : yesterdayDateKey)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                selectedDate === yesterdayDateKey
+                  ? 'bg-[#2d6a4f] text-white shadow-2xs'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              Yesterday
+            </button>
+            <div className="relative inline-flex items-center">
+              <button
+                type="button"
+                onClick={() => {
+                  const el = dateInputRef.current;
+                  if (!el) return;
+                  if (typeof (el as any).showPicker === 'function') {
+                    (el as any).showPicker();
+                  } else {
+                    el.focus();
+                    el.click();
+                  }
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  selectedDate && selectedDate !== todayDateKey && selectedDate !== yesterdayDateKey
+                    ? 'bg-[#d8f3dc] text-[#1b4332]'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5 text-[#2d6a4f] shrink-0" />
+                <span>
+                  {selectedDate && selectedDate !== todayDateKey && selectedDate !== yesterdayDateKey
+                    ? getDateHeading(selectedDate)
+                    : 'Pick Date'}
+                </span>
+              </button>
+              <input
+                ref={dateInputRef}
+                type="date"
+                value={selectedDate}
+                max={todayDateKey}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                aria-label="Filter notifications by date"
+                tabIndex={-1}
+                className="sr-only"
+              />
+            </div>
+            {selectedDate && (
+              <button
+                type="button"
+                onClick={() => setSelectedDate('')}
+                title="Clear date filter"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
           {unreadNoticesCount > 0 && (
             <button
               type="button"
@@ -233,17 +361,26 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
               <Bell className="w-5 h-5" />
             </div>
             <h4 className="text-sm font-bold text-slate-800">
-              {activeTab === 'All' ? 'No new notifications' : `No ${activeTab.toLowerCase()} notifications`}
+              {selectedDate
+                ? `No notifications for ${getDateHeading(selectedDate)}`
+                : activeTab === 'All'
+                  ? 'No new notifications'
+                  : `No ${activeTab.toLowerCase()} notifications`}
             </h4>
             <p className="text-xs text-slate-400 mt-1">
-              {activeTab === 'All'
-                ? "You're all caught up with your workspace updates."
-                : 'Try switching to the All tab to view all notifications.'}
+              {selectedDate
+                ? 'Try selecting another date or clearing the date filter.'
+                : activeTab === 'All'
+                  ? "You're all caught up with your workspace updates."
+                  : 'Try switching to the All tab to view all notifications.'}
             </p>
-            {activeTab !== 'All' && notices.length > 0 && (
+            {(activeTab !== 'All' || selectedDate) && notices.length > 0 && (
               <button
                 type="button"
-                onClick={() => setActiveTab('All')}
+                onClick={() => {
+                  setActiveTab('All');
+                  setSelectedDate('');
+                }}
                 className="mt-3 px-3.5 py-1.5 rounded-lg bg-[#d8f3dc] text-[#1b4332] text-xs font-semibold hover:bg-[#b7e4c7] transition cursor-pointer"
               >
                 View All Notifications
@@ -251,54 +388,68 @@ export const NotificationsModule: React.FC<NotificationsModuleProps> = ({
             )}
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {filteredNotices.map((notice) => {
-              const isUnread = !readNoticeIds.includes(notice.id);
-              return (
-                <div
-                  key={notice.id}
-                  onClick={() => handleViewNotice(notice)}
-                  className={`flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 transition-colors cursor-pointer ${isUnread ? 'bg-[#d8f3dc]/15 hover:bg-[#d8f3dc]/25' : 'bg-white hover:bg-slate-50/80'
-                    }`}
-                >
-                  <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-[#d8f3dc]/70 border border-[#b7e4c7] flex items-center justify-center shrink-0">
-                      {getNoticeIcon(notice)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs sm:text-[13px] font-semibold text-slate-900 truncate">
-                          {notice.title}
-                        </p>
-                        {isUnread && (
-                          <span
-                            className="w-2 h-2 rounded-full bg-[#2d6a4f] shrink-0"
-                            aria-label="Unread"
-                          />
-                        )}
-                      </div>
-                      {notice.message && (
-                        <p className="text-xs text-slate-600 line-clamp-1 mt-0.5">{notice.message}</p>
-                      )}
-                      <span className="text-[11px] text-slate-400 font-medium block mt-0.5">
-                        {formatRelativeTime(notice.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleViewNotice(notice);
-                    }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-[#1b4332] hover:bg-[#d8f3dc]/50 transition shrink-0 cursor-pointer"
-                  >
-                    View
-                  </button>
+          <div>
+            {groupedNotices.map((group) => (
+              <div key={group.dateKey || 'earlier'}>
+                <div className="px-4 sm:px-5 py-2.5 bg-slate-50/90 border-y first:border-t-0 border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                    {group.heading}
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                    {group.items.length}
+                  </span>
                 </div>
-              );
-            })}
+                <div className="divide-y divide-slate-100">
+                  {group.items.map((notice) => {
+                    const isUnread = !readNoticeIds.includes(notice.id);
+                    return (
+                      <div
+                        key={notice.id}
+                        onClick={() => handleViewNotice(notice)}
+                        className={`flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 transition-colors cursor-pointer ${isUnread ? 'bg-[#d8f3dc]/15 hover:bg-[#d8f3dc]/25' : 'bg-white hover:bg-slate-50/80'
+                          }`}
+                      >
+                        <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-[#d8f3dc]/70 border border-[#b7e4c7] flex items-center justify-center shrink-0">
+                            {getNoticeIcon(notice)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs sm:text-[13px] font-semibold text-slate-900 truncate">
+                                {notice.title}
+                              </p>
+                              {isUnread && (
+                                <span
+                                  className="w-2 h-2 rounded-full bg-[#2d6a4f] shrink-0"
+                                  aria-label="Unread"
+                                />
+                              )}
+                            </div>
+                            {notice.message && (
+                              <p className="text-xs text-slate-600 line-clamp-1 mt-0.5">{notice.message}</p>
+                            )}
+                            <span className="text-[11px] text-slate-400 font-medium block mt-0.5">
+                              {formatRelativeTime(notice.createdAt)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewNotice(notice);
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-[#1b4332] hover:bg-[#d8f3dc]/50 transition shrink-0 cursor-pointer"
+                        >
+                          View
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

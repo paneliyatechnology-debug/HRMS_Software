@@ -419,11 +419,19 @@ export const LeaveModule: React.FC<LeaveModuleProps> = ({
     const handleSettingsOrLeaveSync = () => {
       loadQuotaData();
     };
+    const handleCompanySync = (event: Event) => {
+      const scope = String((event as CustomEvent).detail?.scope || '');
+      if (scope === 'all' || scope === 'leaves' || scope === 'settings') {
+        loadQuotaData();
+      }
+    };
     window.addEventListener('hrms_settings_updated', handleSettingsOrLeaveSync);
     window.addEventListener('hrms_leaves_updated', handleSettingsOrLeaveSync);
+    window.addEventListener('hrms_company_data', handleCompanySync);
     return () => {
       window.removeEventListener('hrms_settings_updated', handleSettingsOrLeaveSync);
       window.removeEventListener('hrms_leaves_updated', handleSettingsOrLeaveSync);
+      window.removeEventListener('hrms_company_data', handleCompanySync);
     };
   }, [portalMode, loadQuotaData]);
 

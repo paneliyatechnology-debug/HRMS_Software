@@ -177,6 +177,21 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   useEffect(() => {
     void refreshNotices();
+    if (!isAuthenticated) return;
+    let lastSyncAt = 0;
+    const handleNoticeSync = () => {
+      if (document.visibilityState && document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastSyncAt < 1500) return;
+      lastSyncAt = now;
+      void refreshNotices();
+    };
+    document.addEventListener('visibilitychange', handleNoticeSync);
+    window.addEventListener('focus', handleNoticeSync);
+    return () => {
+      document.removeEventListener('visibilitychange', handleNoticeSync);
+      window.removeEventListener('focus', handleNoticeSync);
+    };
   }, [isAuthenticated, user?.id, user?.role, planStatus.checked, planStatus.premium]);
 
   useEffect(() => {
@@ -467,6 +482,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     s.on('connect', () => {
       setIsConnected(true);
       console.log('⚡ Connected to Paneliya Enterprise WebSocket Gateway');
+      void refreshNotices();
 
       // Gateway drops direct messages until this identity is stored on the socket.
       s.emit('register', registerPayload);

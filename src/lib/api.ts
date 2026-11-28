@@ -2976,6 +2976,67 @@ async function getEmployees() {
   }
 }
 
+async function listCompanyDirectory() {
+  const sanitizeDirectoryUser = (u: any) => {
+    const mapped = userToEmployee(u);
+    return {
+      id: mapped?.id || '',
+      userId: mapped?.userId || mapped?.id || '',
+      employeeId: mapped?.employeeId || mapped?.id || '',
+      employeeCode: mapped?.employeeCode || '',
+      companyId: mapped?.companyId || '',
+      companyName: mapped?.companyName || '',
+      role: mapped?.role || 'EMPLOYEE',
+      firstName: mapped?.firstName || '',
+      lastName: mapped?.lastName || '',
+      name: mapped?.name || '',
+      email: mapped?.email || '',
+      phone: mapped?.phone || '',
+      avatarUrl: mapped?.avatarUrl || '',
+      status: mapped?.status || 'Active',
+      departmentId: mapped?.departmentId || '',
+      departmentName: mapped?.departmentName || 'General',
+      designationId: mapped?.designationId || '',
+      designationTitle: mapped?.designationTitle || mapped?.role || 'Staff',
+      teamId: mapped?.teamId || '',
+      teamName: mapped?.teamName || '',
+      reportingManagerId: mapped?.reportingManagerId || '',
+      reportingManagerName: mapped?.reportingManagerName || '',
+      joiningDate: mapped?.joiningDate || mapped?.createdAt || '',
+    };
+  };
+
+  try {
+    const dirRes = await deduplicatedGet('/employees/directory');
+    const dirUsers = Array.isArray(dirRes?.data)
+      ? dirRes.data
+      : Array.isArray(dirRes?.employees)
+        ? dirRes.employees
+        : Array.isArray(dirRes?.users)
+          ? dirRes.users
+          : Array.isArray(dirRes)
+            ? dirRes
+            : [];
+    if (dirUsers.length > 0) return dirUsers.map(sanitizeDirectoryUser);
+  } catch {
+    // Fallback to /users when /employees/directory is not present
+  }
+
+  try {
+    const res = await deduplicatedGet('/users', { params: { limit: 100 } });
+    const users = Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res?.users)
+        ? res.users
+        : Array.isArray(res)
+          ? res
+          : [];
+    return users.map(sanitizeDirectoryUser);
+  } catch {
+    return [];
+  }
+}
+
 async function createEmployee(data: any) {
   return createUser({
     firstName: data.firstName || '',
@@ -3276,6 +3337,7 @@ export const api = new Proxy({
   getMe,
   getMyCompany,
   getEmployees,
+  listCompanyDirectory,
   getDashboard,
   createEmployee,
   updateEmployee,

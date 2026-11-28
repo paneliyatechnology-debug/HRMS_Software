@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   User,
@@ -533,7 +534,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       className={
         isPageMode
           ? 'bg-white rounded-2xl w-full shadow-sm flex flex-col border border-slate-200 overflow-hidden cursor-default'
-          : 'bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col border border-slate-200/80 overflow-hidden cursor-default my-auto animate-modal-zoom'
+          : 'bg-white rounded-2xl sm:rounded-3xl w-full max-w-[min(896px,calc(100vw-24px))] sm:max-w-[min(896px,calc(100vw-48px))] max-h-[calc(100dvh-24px)] sm:max-h-[calc(100dvh-48px)] shadow-2xl flex flex-col border border-slate-200/80 overflow-hidden cursor-default my-auto animate-modal-zoom'
       }
     >
       {/* â•â•â• CLEAN HEADER: AVATAR, IDENTITY & CONTACT ROW â•â•â• */}
@@ -1552,14 +1553,20 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
     );
   }
 
-  return (
+  const modalContent = (
     <div
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose?.();
       }}
-      className="fixed inset-0 z-[100] overflow-hidden bg-white/45 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 cursor-pointer animate-in fade-in"
+      className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-900/25 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 cursor-pointer animate-in fade-in"
     >
       {profileCardContent}
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 };

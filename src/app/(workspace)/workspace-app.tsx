@@ -29,6 +29,7 @@ import { PlansModule } from '../../components/modules/PlansModule';
 import { OrdersModule } from '../../components/modules/OrdersModule';
 import { SupportModule } from '../../components/modules/SupportModule';
 import { TasksModule } from '../../components/modules/TasksModule';
+import { TeamDirectoryModule } from '../../components/modules/TeamDirectoryModule';
 import { ProfileModule } from '../../components/modules/ProfileModule';
 import { NotificationsModule } from '../../components/modules/NotificationsModule';
 import { getTotalUnreadChatCount, ADMIN_USER_ID } from '../../lib/chatService';
@@ -297,14 +298,27 @@ export function WorkspaceApp() {
         loadData();
       }, 10000);
       const handleUpdate = () => loadData();
+      let lastResumeAt = 0;
+      const handleResumeSync = () => {
+        if (document.visibilityState && document.visibilityState !== 'visible') return;
+        const now = Date.now();
+        if (now - lastResumeAt < 1500) return;
+        lastResumeAt = now;
+        void loadData();
+        window.dispatchEvent(new CustomEvent('hrms_company_data', { detail: { scope: 'all' } }));
+      };
       window.addEventListener('hrms_employees_updated', handleUpdate);
       window.addEventListener('hrms_announcements_updated', handleUpdate);
       window.addEventListener('hrms_leaves_updated', handleUpdate);
+      document.addEventListener('visibilitychange', handleResumeSync);
+      window.addEventListener('focus', handleResumeSync);
       return () => {
         clearInterval(pollInterval);
         window.removeEventListener('hrms_employees_updated', handleUpdate);
         window.removeEventListener('hrms_announcements_updated', handleUpdate);
         window.removeEventListener('hrms_leaves_updated', handleUpdate);
+        document.removeEventListener('visibilitychange', handleResumeSync);
+        window.removeEventListener('focus', handleResumeSync);
       };
     } else if (!isAuthenticated) {
       setEmployees([]);
@@ -670,6 +684,15 @@ export function WorkspaceApp() {
                 employees={employees}
                 departments={departments}
                 portalMode={portalMode}
+              />
+            )}
+            {activeModule === 'team-directory' && (
+              <TeamDirectoryModule
+                employees={employees}
+                onOpenChatWithEmployee={(empId) => {
+                  setTargetChatEmployeeId(empId);
+                  navigateToModule('chat');
+                }}
               />
             )}
             {activeModule === 'profile' && <ProfileModule />}

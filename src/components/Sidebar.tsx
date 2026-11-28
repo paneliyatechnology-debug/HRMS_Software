@@ -724,6 +724,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Company
                 </p>
               )}
+              {portalMode === 'employee' && (
+                navItem('team-directory', 'Team & Directory', <Users className="w-4 h-4" />)
+              )}
               {isModuleAllowedForUser('organization', user) && (
                 navItem('organization', 'About Organisation', <Building2 className="w-4 h-4" />, undefined, 'about')
               )}
